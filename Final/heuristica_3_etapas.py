@@ -365,6 +365,7 @@ def SA_fase_simulacion(config_inicial, fase: str, año: int = 0, verbose: bool =
                 
                 if verbose:
                     print(f"  Iter {iteracion:4d}: ✓ Nuevo mejor! costo={costo_mejor:.2e}, T={T:.1f}")
+                    print(S_actual)
             elif verbose and iteracion % 10 == 0:
                 print(f"  Iter {iteracion:4d}: ✓ Mejora local costo={costo_actual:.2e}, T={T:.1f}")
         
