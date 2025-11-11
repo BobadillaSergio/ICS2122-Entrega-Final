@@ -553,6 +553,8 @@ class SupermarketSimOptimized:
 
         key = (profile_str, priority_str, payment_str)
         umbral_cola = self._cola_minima_por_perfil.get(key)
+        if umbral_cola is None:
+            umbral_cola = 7
 
         if umbral_cola is not None:
             todas_superan = True

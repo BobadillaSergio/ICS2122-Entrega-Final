@@ -44,10 +44,10 @@ def ejecutar_heuristica_2_horas():
     # Configuración inicial (baseline óptima)
     config_inicial = ConfiguracionInicial(
         config_caja={
-            LaneType.REGULAR: 15,
-            LaneType.EXPRESS: 3,
-            LaneType.PRIORITY: 2,
-            LaneType.SELF: 5
+            LaneType.REGULAR: 27,
+            LaneType.EXPRESS: 0,
+            LaneType.PRIORITY: 0,
+            LaneType.SELF: 0
         },
         horarios_caja=HORARIOS_CAJA,
         año=2025
@@ -64,9 +64,9 @@ def ejecutar_heuristica_2_horas():
     
     # Reducir parámetros para ejecución en 2 horas
     import heuristica_3_etapas
-    heuristica_3_etapas.PARAMETROS_SA["estrategica"]["iter_max"] = 30  # Muy reducido
-    heuristica_3_etapas.PARAMETROS_SA["tactica"]["iter_max"] = 30     # Muy reducido
-    heuristica_3_etapas.PARAMETROS_SA["operacional"]["iter_max"] = 50 # Reducido
+    heuristica_3_etapas.PARAMETROS_SA["estrategica"]["iter_max"] = 1  # Muy reducido
+    heuristica_3_etapas.PARAMETROS_SA["tactica"]["iter_max"] = 1  # CAMBIARAIURGUYSUBYSUB
+    heuristica_3_etapas.PARAMETROS_SA["operacional"]["iter_max"] = 10 # Reducido
     heuristica_3_etapas.N_REPLICAS_EVALUACION = 2  # Muy reducido
     
     print(f"  - Iteraciones estratégica: 30 (muy reducido)")

@@ -94,14 +94,14 @@ PARAMETROS_SA = {
         "alpha": 0.95,
         "T_min": 10,
         "prob_greedy": 0.60,
-        "iter_max": 200
+        "iter_max": 1
     },
     "tactica": {
         "T_inicial": 500,
         "alpha": 0.95,
         "T_min": 5,
         "prob_greedy": 0.70,
-        "iter_max": 500
+        "iter_max": 1
     },
     "operacional": {
         "T_inicial": 200,
@@ -545,7 +545,23 @@ def SA_Pendular_Simulacion(config_inicial: ConfiguracionInicial,
             print(f"    ✅ FASE 3 COMPLETADA")
             total_cajas_despues = sum(len(operacional_nueva.horarios[DayType.NORMAL][hora][tipo]) 
                                     for hora in range(8, 22) for tipo in LaneType)
+            
             print(f"    Cajas abiertas promedio (después): {total_cajas_despues/14:.1f}")
+            # PONER PRINTS que muestre los horarios, y cuantas cajas hay abiertas de cada tipo, seria una matriz, filas de horarios, y cada columna seria un tipo de caja.
+            try:
+                tipos = [t for t in LaneType]
+                encabezado = "Hora  " + "  ".join(f"{t.value:>8}" for t in tipos)
+                for dia in [DayType.NORMAL, DayType.OFERTA, DayType.DOMINGO]:
+                    print(f"\n    Horarios - {dia.value}:")
+                    print(f"    {encabezado}")
+                    for hora in range(8, 22):
+                        cuentas = [len(operacional_nueva.horarios[dia][hora].get(tipo, [])) 
+                                   for tipo in tipos]
+                        fila = f"    {hora:02d}: " + "  ".join(f"{c:8d}" for c in cuentas)
+                        print(fila)
+            except Exception as e:
+                # No interrumpir ejecución por un print
+                print(f"    (Advertencia) No se pudo desplegar matriz de horarios: {e}")
         
         # --- EVALUACIÓN GLOBAL COMPLETA ---
         if verbose:
