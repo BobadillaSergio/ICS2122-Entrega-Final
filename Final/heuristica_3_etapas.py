@@ -402,6 +402,7 @@ def SA_fase_simulacion(config_inicial, fase: str, año: int = 0, verbose: bool =
         else:
             # Global: genera 1 vecino con perturbación grande
             S_vecino = generar_vecino(S_actual, fase, "global")
+
             costo_vecino = evaluar_fase_simulacion(S_vecino, fase, año, n_rep=3)
         
         # Criterio de Metropolis
