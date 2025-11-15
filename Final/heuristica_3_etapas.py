@@ -284,6 +284,13 @@ def evaluar_fase_simulacion(config, fase: str, año: int = 0, n_rep: int = 10) -
             config_tactica=tactica,
             anio_actual=año
         )
+        for dia in DayType: #partimos con todas las cajas abiertas
+            operacional.horarios[dia] = {}
+            for hora in range(8, 22):
+                operacional.horarios[dia][hora] = {}
+                for tipo in LaneType:
+                    num_cajas = tactica.cajas_por_anio[año][tipo]
+                    operacional.horarios[dia][hora][tipo] = list(range(num_cajas))
         solucion = SolucionCompleta(estrategica=config, tactica=tactica, operacional=operacional)
     
     elif fase == "tactica":
@@ -293,6 +300,14 @@ def evaluar_fase_simulacion(config, fase: str, año: int = 0, n_rep: int = 10) -
             config_tactica=config,
             anio_actual=año
         )
+        # Inicializar horarios: todas las cajas abiertas 8:00-22:00
+        for dia in DayType:
+            operacional.horarios[dia] = {}
+            for hora in range(8, 22):
+                operacional.horarios[dia][hora] = {}
+                for tipo in LaneType:
+                    num_cajas = config.cajas_por_anio[año][tipo]
+                    operacional.horarios[dia][hora][tipo] = list(range(num_cajas))
         solucion = SolucionCompleta(
             estrategica=config.config_estrategica,
             tactica=config,
@@ -441,7 +456,11 @@ def SA_fase_simulacion(config_inicial, fase: str, año: int = 0, verbose: bool =
         print(f"SA - FASE {fase.upper()} COMPLETADO")
         print(f"{'='*60}")
         print(f"Mejor costo: {costo_mejor:.2e}")
-        print(f"Aceptaciones: {historial['aceptaciones']} ({historial['aceptaciones']/params['iter_max']*100:.1f}%)")
+        if params['iter_max'] > 0: #evitar division by zero
+            porcentaje = historial['aceptaciones'] / params['iter_max'] * 100
+            print(f"Aceptaciones: {historial['aceptaciones']} ({porcentaje:.1f}%)")
+        else:
+            print(f"Aceptaciones: {historial['aceptaciones']} (sin iteraciones - iter_max=0)")
         print(f"Tiempo: {t_fin - t_inicio:.1f}s")
     
     return S_mejor, costo_mejor, historial
