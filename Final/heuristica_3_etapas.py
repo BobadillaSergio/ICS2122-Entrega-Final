@@ -353,7 +353,7 @@ def SA_fase_simulacion(config_inicial, fase: str, año: int = 0, verbose: bool =
     S_actual = config_inicial.copy()
     S_mejor = config_inicial.copy()
     
-    costo_actual = evaluar_fase_simulacion(S_actual, fase, año, n_rep=5)  # Pocas réplicas para SA
+    costo_actual = evaluar_fase_simulacion(S_actual, fase, año, n_rep=10)  # Pocas réplicas para SA
     costo_mejor = costo_actual
     
     # Temperatura
@@ -393,8 +393,7 @@ def SA_fase_simulacion(config_inicial, fase: str, año: int = 0, verbose: bool =
             print("ACTUAL", costo_actual)
             
             for vecino in vecinos:
-                costo_v = evaluar_fase_simulacion(vecino, fase, año, n_rep=5)  # Muy pocas réplicas
-                print(vecino)
+                costo_v = evaluar_fase_simulacion(vecino, fase, año, n_rep=10)  # Muy pocas réplicas
                 print("Vecino", costo_v)
                 if costo_v < mejor_costo_vecino:
                     mejor_costo_vecino = costo_v
