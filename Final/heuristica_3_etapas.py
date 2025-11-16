@@ -390,9 +390,12 @@ def SA_fase_simulacion(config_inicial, fase: str, año: int = 0, verbose: bool =
             # Evaluar todos los vecinos y elegir el mejor
             mejor_vecino = None
             mejor_costo_vecino = float('inf')
+            print("ACTUAL", costo_actual)
             
             for vecino in vecinos:
-                costo_v = evaluar_fase_simulacion(vecino, fase, año, n_rep=3)  # Muy pocas réplicas
+                costo_v = evaluar_fase_simulacion(vecino, fase, año, n_rep=5)  # Muy pocas réplicas
+                print(vecino)
+                print("Vecino", costo_v)
                 if costo_v < mejor_costo_vecino:
                     mejor_costo_vecino = costo_v
                     mejor_vecino = vecino
@@ -403,7 +406,7 @@ def SA_fase_simulacion(config_inicial, fase: str, año: int = 0, verbose: bool =
             # Global: genera 1 vecino con perturbación grande
             S_vecino = generar_vecino(S_actual, fase, "global")
 
-            costo_vecino = evaluar_fase_simulacion(S_vecino, fase, año, n_rep=3)
+            costo_vecino = evaluar_fase_simulacion(S_vecino, fase, año, n_rep=5)
         
         # Criterio de Metropolis
         delta = costo_vecino - costo_actual
