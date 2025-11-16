@@ -244,7 +244,34 @@ def cerrar_caja(config: ConfigOperacional, dia: DayType, hora: int, tipo: LaneTy
     nueva_config = config.copy()
     
     if len(nueva_config.horarios[dia][hora][tipo]) > 0:
-        nueva_config.horarios[dia][hora][tipo].pop()
+        #eliminar una caja aleatoria en lugar de la última
+        # nueva_config.horarios[dia][hora][tipo].pop()
+        indice = random.randint(0, len(nueva_config.horarios[dia][hora][tipo]) - 1)
+        nueva_config.horarios[dia][hora][tipo].pop(indice)
+    
+    return nueva_config
+
+def ajustar_cajas_horario(config: ConfigOperacional, dia: DayType, hora: int, tipo: LaneType, cambio: int) -> ConfigOperacional:
+    """Ajusta múltiples cajas en un horario específico (puede ser positivo o negativo)."""
+    nueva_config = config.copy()
+    
+    cajas_disponibles = nueva_config.config_tactica.cajas_por_anio[nueva_config.anio_actual][tipo]
+    cajas_actuales = set(nueva_config.horarios[dia][hora][tipo])
+    
+    if cambio > 0:
+        # Abrir más cajas
+        for id_caja in range(cajas_disponibles):
+            if id_caja not in cajas_actuales and len(nueva_config.horarios[dia][hora][tipo]) < cajas_disponibles:
+                nueva_config.horarios[dia][hora][tipo].append(id_caja)
+                cambio -= 1
+                if cambio == 0:
+                    break
+    elif cambio < 0:
+        # Cerrar cajas
+        cambio = abs(cambio)
+        while cambio > 0 and len(nueva_config.horarios[dia][hora][tipo]) > 0:
+            nueva_config.horarios[dia][hora][tipo].pop()
+            cambio -= 1
     
     return nueva_config
 
