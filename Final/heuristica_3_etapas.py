@@ -230,13 +230,27 @@ def evaluar_configuracion_simulacion(solucion: SolucionCompleta, año: int = 0, 
     """
     Evalúa una configuración usando la simulación optimizada.
     
+    IMPORTANTE: El parámetro 'año' afecta la simulación pero NO el período del VAN:
+    - año=0 → Simula con parámetros de 2025, usa configuración de cajas del año 0
+    - año=1 → Simula con parámetros de 2026, usa configuración de cajas del año 1
+    - año=4 → Simula con parámetros de 2029, usa configuración de cajas del año 4
+    
+    El VAN SIEMPRE se calcula para el horizonte completo 2025-2029 (5 años),
+    independientemente del año simulado. Esto es porque la heurística optimiza
+    para el período completo de 5 años.
+    
+    El año afecta:
+    1. Configuración de cajas: usa solucion.tactica.cajas_por_anio[año]
+    2. Demanda y costos: simula con parámetros del año (2025 + año)
+    3. Cálculo VAN: SIEMPRE calcula VAN para 2025-2029 (horizonte completo)
+    
     Args:
         solucion: SolucionCompleta a evaluar
-        año: Año de evaluación (0-4)
+        año: Año de evaluación (0-4), donde 0=2025, 1=2026, etc.
         n_rep: Número de réplicas
     
     Returns:
-        Dict con KPIs de la simulación
+        Dict con KPIs de la simulación, incluyendo VAN_correcto_5_anios (siempre para 2025-2029)
     """
     config_caja, horarios = solucion_completa_a_config_simulacion(solucion, año)
     
@@ -245,12 +259,14 @@ def evaluar_configuracion_simulacion(solucion: SolucionCompleta, año: int = 0, 
     kpis_por_dia = {}
     
     for dia in [DayType.NORMAL, DayType.OFERTA, DayType.DOMINGO]:
+        # Simular con demanda y costos del año correspondiente
         kpi = simular_varios(dia, config_caja, horarios, 2025 + año, n_rep=n_rep)
         kpis_por_dia[dia] = kpi
         
         # Multiplicador según tipo de día
         multiplicador = 3 if dia in [DayType.NORMAL, DayType.OFERTA] else 1
         # Usar VAN correcto de 5 años en lugar de VAN del día
+        # VAN_correcto_5_anios ya considera el año de inicio correcto
         van_correcto = kpi.get('VAN_correcto_5_anios', kpi['VAN_dia_clp'])
         van_total += van_correcto * multiplicador
     

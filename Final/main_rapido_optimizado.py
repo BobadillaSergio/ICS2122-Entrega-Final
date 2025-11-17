@@ -195,6 +195,20 @@ PROYECCION_DEMANDA = {
 DISCOUNT_RATE_ANUAL = 0.0854
 SL_THRESHOLD_SEC = 300
 
+# Capacidad por isla para cada tipo de caja (permite agrupación)
+# El umbral de cola en elegir_caja limita cuántas personas están dispuestas a esperar
+# Por defecto: SELF=5 (requerido), otros=1 (sin agrupación)
+# Se puede optimizar para permitir agrupación de otras cajas respetando el umbral
+# IMPORTANTE: El umbral de cola (típicamente 2 personas según el usuario) limita la
+# agrupación efectiva. Aunque se puedan agrupar múltiples cajas en una isla, si la
+# cola visible supera el umbral, los clientes no esperarán (balking).
+CAPACIDAD_POR_ISLA = {
+    LaneType.REGULAR: 5,    # Por defecto sin agrupación, pero se puede cambiar para optimizar
+    LaneType.EXPRESS: 5,    # Por defecto sin agrupación, pero se puede cambiar para optimizar
+    LaneType.PRIORITY: 5,   # Por defecto sin agrupación, pero se puede cambiar para optimizar
+    LaneType.SELF: 5,       # Requerido: múltiplos de 5 (cada isla tiene 5 cajas)
+}
+
 # Cargar datos globales (se hace UNA vez al inicio)
 LAMBDA_POR_HORA = cargar_tiempos_entre_llegadas(PATH_ENTRE_LLEGADAS)
 PATIENCE_MEAN_SEC = cargar_paciencia_desde_excel(os.path.join("..", "load_params", "paciencia_promedio_por_perfil_y_dia.csv"))
@@ -427,9 +441,11 @@ class SupermarketSimOptimized:
         self.horarios = horarios
         self.perdidas_por_ventas = 0
 
+        # Permitir agrupación de todas las cajas según CAPACIDAD_POR_ISLA
+        # El umbral de cola en elegir_caja limita la agrupación efectiva
         self.lanes: Dict[LaneType, LanePool] = {
             lt: LanePool(self.env, lt, self.configuracion[lt], self.horarios[self.day][lt],
-                        per_queue_cap=5 if lt == LaneType.SELF else 1) for lt in LaneType
+                        per_queue_cap=CAPACIDAD_POR_ISLA.get(lt, 1)) for lt in LaneType
         }
 
         # KPIs
@@ -564,8 +580,15 @@ class SupermarketSimOptimized:
         key = (profile_str, priority_str, payment_str)
         umbral_cola = self._cola_minima_por_perfil.get(key)
         if umbral_cola is None:
+            # Valor por defecto si no se encuentra en el CSV
+            # NOTA: El usuario menciona que el umbral óptimo es 2 personas
+            # Si el CSV no tiene valores, considerar cambiar este default a 2
             umbral_cola = 7
 
+        # Verificar si todas las colas superan el umbral
+        # Si todas superan el umbral, el cliente se va (balking)
+        # El umbral limita la agrupación efectiva: aunque se puedan agrupar múltiples cajas,
+        # si la cola visible supera el umbral, los clientes no esperarán
         if umbral_cola is not None:
             todas_superan = True
             for lt in elegibles:
@@ -684,9 +707,11 @@ class SupermarketSimOptimized:
                 # Costos operacionales por hora (CORRECTO)
                 self.costo_operacion += horas_operadas * (COSTO_CAJA_CLP_POR_HORA[lt] + COSTOS_OPERATIVOS_CAJA[lt])
 
-        # Supervisores SCO (si aplica)
+        # Supervisores SCO (solo SELF requiere supervisores)
+        # Cada isla de SELF (hasta 5 cajas) requiere supervisores
         if self.configuracion[LaneType.SELF] > 0:
-            cantidad_islas = math.ceil(self.configuracion[LaneType.SELF] / 5)
+            capacidad_por_isla_self = CAPACIDAD_POR_ISLA.get(LaneType.SELF, 5)
+            cantidad_islas = math.ceil(self.configuracion[LaneType.SELF] / capacidad_por_isla_self)
             self.costo_operacion += COSTO_SUPERVISORES_SELF_CLP_POR_HORA * horas_operacion * cantidad_islas
 
         # Costos operativos del día (sin inversión inicial)
@@ -706,6 +731,11 @@ class SupermarketSimOptimized:
         Calcula el VAN con estructura temporal correcta:
         t=0: Inversión inicial (CAPEX)
         t=1-5: Flujos anuales considerando multiplicadores por tipo de día
+        
+        IMPORTANTE: El VAN siempre se calcula para el horizonte de 5 años (2025-2029),
+        independientemente del año simulado (self.año). El año simulado solo afecta:
+        - Los parámetros de demanda y costos usados en la simulación
+        - Pero el VAN siempre es para 2025-2029 (el horizonte completo de la heurística)
         """
         # t=0: Inversión inicial (CAPEX)
         inversion_inicial = 0
@@ -722,15 +752,35 @@ class SupermarketSimOptimized:
         
         # Proyectar a flujo anual: (3×NORMAL + 3×OFERTA + 1×DOMINGO) × 52 semanas
         # Como cada simulación representa un tipo de día, multiplicamos por 52
-        flujo_anual = van_dia_ponderado * 52
+        flujo_anual_base = van_dia_ponderado * 52
         
         # Calcular VAN con descuento
+        # Año base para descuento (2025) - SIEMPRE desde 2025
+        año_base = 2025
         van_total = -inversion_inicial  # t=0
         
-        for año in range(1, 6):  # t=1 a t=5
-            van_total += flujo_anual / ((1 + DISCOUNT_RATE_ANUAL) ** año)
+        # Calcular flujos para los próximos 5 años (2025-2029)
+        # El año simulado (self.año) solo afecta los parámetros de simulación,
+        # pero el VAN siempre se calcula para el horizonte completo 2025-2029
+        for t in range(1, 6):  # t=1 a t=5 (años 2025-2029)
+            año_futuro = año_base + (t - 1)  # 2025, 2026, 2027, 2028, 2029
+            
+            # Ajustar flujo según proyección de demanda del año
+            # El flujo base es del año simulado (self.año), lo proyectamos a cada año del horizonte
+            if año_futuro in PROYECCION_DEMANDA and self.año in PROYECCION_DEMANDA:
+                # Ajustar el flujo base del año simulado al año del horizonte
+                factor_demanda = PROYECCION_DEMANDA[año_futuro] / PROYECCION_DEMANDA.get(self.año, 1.0)
+            else:
+                factor_demanda = 1.0
+            
+            # Flujo ajustado por demanda
+            flujo_anual = flujo_anual_base * factor_demanda
+            
+            # Descontar al año base (2025)
+            años_descuento = año_futuro - año_base
+            van_total += flujo_anual / ((1 + DISCOUNT_RATE_ANUAL) ** años_descuento)
         
-        return van_total, inversion_inicial, flujo_anual
+        return van_total, inversion_inicial, flujo_anual_base
 
     def run(self):
         self.env.process(self.generator_llegadas_optimizado())
