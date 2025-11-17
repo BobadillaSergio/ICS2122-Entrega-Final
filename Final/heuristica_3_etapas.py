@@ -334,7 +334,7 @@ def evaluar_fase_simulacion(config, fase: str, año: int = 0, n_rep: int = 10) -
 # ALGORITMO SA POR FASE
 # ============================================
 
-def SA_fase_simulacion(config_inicial, fase: str, año: int = 0, verbose: bool = True) -> Tuple:
+def SA_fase_simulacion(config_inicial, fase: str, año: int = 4, verbose: bool = True) -> Tuple:
     """
     Simulated Annealing para una fase específica usando simulación.
     
@@ -392,14 +392,9 @@ def SA_fase_simulacion(config_inicial, fase: str, año: int = 0, verbose: bool =
             mejor_costo_vecino = float('inf')
             
             for vecino in vecinos:
-<<<<<<< HEAD
                 print(vecino)
                 costo_v = evaluar_fase_simulacion(vecino, fase, año, n_rep=10)  # Muy pocas réplicas
                 print("Vecino", costo_v)
-=======
-                costo_v = evaluar_fase_simulacion(vecino, fase, año, n_rep=5)  # Muy pocas réplicas
-                # print(f"Vecino: {costo_v}")
->>>>>>> e376380db9f492011517d8b9fa7dd89782a0488b
                 if costo_v < mejor_costo_vecino:
                     print(f"Nuevo mejor vecino: {costo_v}, mayor a {mejor_costo_vecino}")
                     #imprimir_configuracion(vecino, fase)
@@ -555,7 +550,7 @@ def SA_Pendular_Simulacion(config_inicial: ConfiguracionInicial,
         estrategica_nueva, costo_estrategico, hist_estrategico = SA_fase_simulacion(
             config_inicial=estrategica_actual,
             fase="estrategica",
-            año=0,
+            año=4,
             verbose=verbose
         )
         

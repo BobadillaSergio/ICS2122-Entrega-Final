@@ -153,24 +153,30 @@ def swap_anios(config: ConfigTactica, anio1: int, anio2: int) -> ConfigTactica:
 def generar_vecinos_tacticos_locales(config: ConfigTactica, max_vecinos: int = 10) -> List[ConfigTactica]:
     """Genera vecinos locales (pequeñas modificaciones en asignación anual)."""
     vecinos = []
-    
     for anio in range(5):
         for tipo in LaneType:
             # Activar temprano
             v1 = activar_temprano(config, tipo, anio)
-            if v1.es_factible():
+            if v1.cajas_por_anio == config.cajas_por_anio:
+                print("Igual ACTIVAR TEMPRANO")
+            if v1.es_factible() and v1.cajas_por_anio != config.cajas_por_anio:
                 vecinos.append(v1)
             
             # Activar tarde
             v2 = activar_tarde(config, tipo, anio)
-            if v2.es_factible():
+            if v2.cajas_por_anio == config.cajas_por_anio:
+                print("Igual ACTIVAR TARDE")
+            if v2.es_factible() and v2.cajas_por_anio != config.cajas_por_anio:
                 vecinos.append(v2)
     
     # Swaps entre años
     for a1 in range(5):
         for a2 in range(a1 + 1, 5):
             v3 = swap_anios(config, a1, a2)
-            if v3.es_factible():
+            if v3 == config:
+                print("Igual SWAP")
+            if v3.es_factible() and v3 != config:
+                print("SWAP", a1, a2)
                 vecinos.append(v3)
     
     if len(vecinos) > max_vecinos:
@@ -289,41 +295,85 @@ def swap_horas_adyacentes(config: ConfigOperacional, dia: DayType, hora1: int) -
     return nueva_config
 
 
-def generar_vecinos_operacionales_locales(config: ConfigOperacional, max_vecinos: int = 40) -> List[ConfigOperacional]:
+def generar_vecinos_operacionales_locales(config: ConfigOperacional, max_vecinos: int = 5) -> List[ConfigOperacional]:
     """
     Genera vecinos locales (pequeñas modificaciones horarias).
     
     Nota: Este es el más costoso computacionalmente porque hay muchas combinaciones
     (3 días × 14 horas × 4 tipos × 2 operaciones = 336 posibles vecinos).
+    Genera vecinos locales estratégicos:
+    - max_vecinos con ABRIR cajas en horarios de mayor carga
+    - max_vecinos con CERRAR cajas en horarios de menor carga
     """
     vecinos = []
+    # Calcular estado de carga para todos los (dia, hora, tipo)
+    estados_carga = []
     
-    # Para no explotar el espacio, muestrear aleatoriamente
-    dias = list(DayType)
-    horas = list(range(8, 22))
-    tipos = list(LaneType)
+    for dia in DayType:
+        for hora in range(8, 22):
+            for tipo in LaneType:
+                # Calcular carga actual (evitar división por cero)
+                carriles_activos = sum(len(config.horarios[dia][hora][l]) for l in LaneType)
+                if carriles_activos > 0:
+                    carga = 1 / (carriles_activos * LAMBDA_POR_HORA[dia][hora])
+                else:
+                    carga = float('inf')  # Máxima prioridad si no hay carriles
+                
+                estados_carga.append({
+                    'dia': dia,
+                    'hora': hora,
+                    'tipo': tipo,
+                    'carga': carga,
+                    'carriles_actuales': len(config.horarios[dia][hora][tipo])
+                })
     
-    # Generar muestras aleatorias
-    for _ in range(max_vecinos * 2):  # Generar el doble e ir filtrando
-        dia = random.choice(dias)
-        hora = random.choice(horas)
-        tipo = random.choice(tipos)
-        
-        operacion = random.choice(["abrir", "cerrar", "ajustar"])
-        
-        if operacion == "abrir":
-            v = abrir_caja(config, dia, hora, tipo)
-        elif operacion == "cerrar":
-            v = cerrar_caja(config, dia, hora, tipo)
-        elif operacion == "ajustar":
-            cambio = random.choice([-2, -1, 1, 2])  # Cambios más significativos
-            v = ajustar_cajas_horario(config, dia, hora, tipo, cambio)
-        
-        if v.es_factible():
-            vecinos.append(v)
-            if len(vecinos) >= max_vecinos:
-                break
+    # Ordenar por carga (mayor a menor)
+    estados_carga.sort(key=lambda x: x['carga'], reverse=True)
     
+    '''
+    # 1. VECINOS CON ABRIR CAJAS (en horarios de MAYOR carga)
+    vecinos_abrir = []
+    for estado in estados_carga:
+        if len(vecinos_abrir) >= max_vecinos:
+            break
+            
+        dia = estado['dia']
+        hora = estado['hora']
+        tipo = estado['tipo']
+        
+        vecino = abrir_caja(config, dia, hora, tipo)
+        if vecino.es_factible():
+            vecinos_abrir.append(vecino)
+            print(f"🟢 ABRIR caja en {dia} {hora}h {tipo.name} - Carga: {estado['carga']:.2f}")
+    '''
+    # 2. VECINOS CON CERRAR CAJAS (en horarios de MENOR carga)
+    vecinos_cerrar = []
+    for estado in reversed(estados_carga):  # Recorrer de menor a mayor carga
+        if len(vecinos_cerrar) >= max_vecinos:
+            break
+            
+        dia = estado['dia']
+        hora = estado['hora']
+        tipo = estado['tipo']
+
+        def recursividad_cierre(vec, cerradas, dia, hora, tipo):
+            if random.random() > 0.25:
+                cerradas += 1
+                vec = cerrar_caja(vec, dia, hora, tipo)
+                return recursividad_cierre(vec, cerradas, dia, hora, tipo)
+            return vec, cerradas
+
+        # Verificar si podemos cerrar cajas de este tipo (debe haber al menos 1 abierta)
+        if estado['carriles_actuales'] > 0:
+            vecino = cerrar_caja(config, dia, hora, tipo)
+            vecino, cerradas = recursividad_cierre(vecino, 1, dia, hora, tipo)
+
+            if vecino.es_factible():
+                vecinos_cerrar.append(vecino)
+                print(f"🔴 CERRAR {cerradas} caja en {dia} {hora}h {tipo.name} - Carga: {estado['carga']:.2f}")
+
+    # Combinar ambos tipos de vecinos
+    vecinos = vecinos_cerrar
     return vecinos
 
 
