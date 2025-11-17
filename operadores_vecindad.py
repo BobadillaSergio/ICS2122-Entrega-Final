@@ -150,7 +150,7 @@ def swap_anios(config: ConfigTactica, anio1: int, anio2: int) -> ConfigTactica:
     return nueva_config
 
 
-def generar_vecinos_tacticos_locales(config: ConfigTactica, max_vecinos: int = 30) -> List[ConfigTactica]:
+def generar_vecinos_tacticos_locales(config: ConfigTactica, max_vecinos: int = 5) -> List[ConfigTactica]:
     """Genera vecinos locales (pequeñas modificaciones en asignación anual)."""
     vecinos = []
     
@@ -215,6 +215,7 @@ def generar_vecino_tactico_global(config: ConfigTactica) -> ConfigTactica:
     
     if not nueva_config.es_factible():
         return config.copy()
+    print(nueva_config)
     
     return nueva_config
 

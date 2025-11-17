@@ -100,7 +100,7 @@ PARAMETROS_SA = {
         "T_inicial": 500,
         "alpha": 0.95,
         "T_min": 5,
-        "prob_greedy": 0.70,
+        "prob_greedy": 0.90,
         "iter_max": 1
     },
     "operacional": {
@@ -393,6 +393,7 @@ def SA_fase_simulacion(config_inicial, fase: str, año: int = 0, verbose: bool =
             print("ACTUAL", costo_actual)
             
             for vecino in vecinos:
+                print(vecino)
                 costo_v = evaluar_fase_simulacion(vecino, fase, año, n_rep=10)  # Muy pocas réplicas
                 print("Vecino", costo_v)
                 if costo_v < mejor_costo_vecino:
