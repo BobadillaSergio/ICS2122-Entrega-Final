@@ -8,7 +8,7 @@ import sys
 sys.path.append("..")
 from load_params.dominios import LaneType, DayType
 from estructuras_datos import ConfigEstrategica, ConfigTactica, ConfigOperacional
-
+from Final.main_rapido_optimizado import LAMBDA_POR_HORA
 
 # ============================================
 # OPERADORES ESTRATÉGICOS
@@ -238,12 +238,15 @@ def abrir_caja(config: ConfigOperacional, dia: DayType, hora: int, tipo: LaneTyp
     cajas_abiertas = set(nueva_config.horarios[dia][hora][tipo])
     
     # Encontrar una caja que no esté abierta
+    todas_abiertas = True
     for id_caja in range(cajas_disponibles):
         if id_caja not in cajas_abiertas:
+            todas_abiertas = False
             nueva_config.horarios[dia][hora][tipo].append(id_caja)
             break
-    
-    return nueva_config
+    if todas_abiertas == False:
+        return nueva_config
+    return False
 
 
 def cerrar_caja(config: ConfigOperacional, dia: DayType, hora: int, tipo: LaneType) -> ConfigOperacional:
@@ -295,7 +298,7 @@ def swap_horas_adyacentes(config: ConfigOperacional, dia: DayType, hora1: int) -
     return nueva_config
 
 
-def generar_vecinos_operacionales_locales(config: ConfigOperacional, max_vecinos: int = 5) -> List[ConfigOperacional]:
+def generar_vecinos_operacionales_locales(config: ConfigOperacional, max_vecinos: int = 10) -> List[ConfigOperacional]:
     """
     Genera vecinos locales (pequeñas modificaciones horarias).
     
@@ -330,11 +333,11 @@ def generar_vecinos_operacionales_locales(config: ConfigOperacional, max_vecinos
     # Ordenar por carga (mayor a menor)
     estados_carga.sort(key=lambda x: x['carga'], reverse=True)
     
-    '''
+    
     # 1. VECINOS CON ABRIR CAJAS (en horarios de MAYOR carga)
     vecinos_abrir = []
     for estado in estados_carga:
-        if len(vecinos_abrir) >= max_vecinos:
+        if len(vecinos_abrir) >= max_vecinos / 2:
             break
             
         dia = estado['dia']
@@ -342,10 +345,10 @@ def generar_vecinos_operacionales_locales(config: ConfigOperacional, max_vecinos
         tipo = estado['tipo']
         
         vecino = abrir_caja(config, dia, hora, tipo)
-        if vecino.es_factible():
+        if vecino != False and vecino.es_factible():
             vecinos_abrir.append(vecino)
             print(f"🟢 ABRIR caja en {dia} {hora}h {tipo.name} - Carga: {estado['carga']:.2f}")
-    '''
+    
     # 2. VECINOS CON CERRAR CAJAS (en horarios de MENOR carga)
     vecinos_cerrar = []
     for estado in reversed(estados_carga):  # Recorrer de menor a mayor carga

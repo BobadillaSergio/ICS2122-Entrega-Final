@@ -353,8 +353,9 @@ def SA_fase_simulacion(config_inicial, fase: str, año: int = 4, verbose: bool =
     S_actual = config_inicial.copy()
     S_mejor = config_inicial.copy()
     
-    costo_actual = evaluar_fase_simulacion(S_actual, fase, año, n_rep=5)  # Pocas réplicas para SA
+    costo_actual = evaluar_fase_simulacion(S_actual, fase, año, n_rep=3)  # Pocas réplicas para SA
     costo_mejor = costo_actual
+    
     
     # Temperatura
     T = params["T_inicial"]
@@ -366,8 +367,11 @@ def SA_fase_simulacion(config_inicial, fase: str, año: int = 4, verbose: bool =
         "costos": [costo_actual],
         "temperaturas": [T],
         "aceptaciones": 0,
-        "rechazos": 0
+        "rechazos": 0,
+        #Guardar VAN (positivo) por iteración. La key es el número de iteración y el valor es el VAN positivo.
+        "van_por_iteracion": {}
     }
+    historial["van_por_iteracion"][0] = -costo_actual  # Guardar VAN positivo
     
     if verbose:
         print(f"\n{'='*60}")
@@ -392,8 +396,7 @@ def SA_fase_simulacion(config_inicial, fase: str, año: int = 4, verbose: bool =
             mejor_costo_vecino = float('inf')
             
             for vecino in vecinos:
-                print(vecino)
-                costo_v = evaluar_fase_simulacion(vecino, fase, año, n_rep=10)  # Muy pocas réplicas
+                costo_v = evaluar_fase_simulacion(vecino, fase, año, n_rep=3)  # Muy pocas réplicas
                 print("Vecino", costo_v)
                 if costo_v < mejor_costo_vecino:
                     print(f"Nuevo mejor vecino: {costo_v}, mayor a {mejor_costo_vecino}")
@@ -407,7 +410,7 @@ def SA_fase_simulacion(config_inicial, fase: str, año: int = 4, verbose: bool =
         else:
             # Global: genera 1 vecino con perturbación grande
             S_vecino = generar_vecino(S_actual, fase, "global")
-            costo_vecino = evaluar_fase_simulacion(S_vecino, fase, año, n_rep=5)
+            costo_vecino = evaluar_fase_simulacion(S_vecino, fase, año, n_rep=3)
         
         # Criterio de Metropolis
         delta = costo_vecino - costo_actual
@@ -420,6 +423,7 @@ def SA_fase_simulacion(config_inicial, fase: str, año: int = 4, verbose: bool =
             S_actual = S_vecino
             costo_actual = costo_vecino
             historial["aceptaciones"] += 1
+            # historial["van_por_iteracion"][iteracion] = -costo_actual  # Guardar VAN positivo
             
             if costo_actual < costo_mejor:
                 S_mejor = S_actual.copy()
@@ -436,11 +440,13 @@ def SA_fase_simulacion(config_inicial, fase: str, año: int = 4, verbose: bool =
             S_actual = S_vecino
             costo_actual = costo_vecino
             historial["aceptaciones"] += 1
+            # historial["van_por_iteracion"][iteracion] = -costo_actual 
             # if verbose and iteracion % 10 == 0:
             print(f" ✅ Iter {iteracion:4d}: ~ Aceptado peor costo={costo_actual:.2e}, T={T:.1f}")
         else:
             historial["rechazos"] += 1
             # if verbose and iteracion % 10 == 0:
+            # historial["van_por_iteracion"][iteracion] = -costo_actual
             print(f" ❌ Iter {iteracion:4d}: ✗ Rechazado costo={costo_vecino:.2e}, T={T:.1f}")
         
         # Enfriamiento
@@ -449,6 +455,7 @@ def SA_fase_simulacion(config_inicial, fase: str, año: int = 4, verbose: bool =
         # Guardar historial
         historial["costos"].append(costo_actual)
         historial["temperaturas"].append(T)
+        historial["van_por_iteracion"][iteracion] = -costo_actual  # Guardar VAN positivo
         
         # Imprimir progreso cada 50 iteraciones
         if verbose and iteracion % 50 == 0:
@@ -553,6 +560,17 @@ def SA_Pendular_Simulacion(config_inicial: ConfiguracionInicial,
             año=4,
             verbose=verbose
         )
+        van_por_iter = hist_estrategico["van_por_iteracion"]
+        iteraciones = sorted(van_por_iter.keys())
+        van = [van_por_iter[i] for i in iteraciones]
+
+        folder = os.path.dirname("convergencia/van_fase_estrategica_ciclo_{ciclo}.csv")
+        if folder:
+            os.makedirs(folder, exist_ok=True)
+        with open(f"convergencia/van_fase_estrategica_ciclo_{ciclo}.csv", "w") as f:
+            f.write("iteracion,van\n")
+            for i, v in zip(iteraciones, van):
+                f.write(f"{i},{v}\n")
         
         if verbose:
             print(f"    ✅ FASE 1 COMPLETADA")
@@ -575,6 +593,18 @@ def SA_Pendular_Simulacion(config_inicial: ConfiguracionInicial,
             año=0,
             verbose=verbose
         )
+
+        van_por_iter = hist_tactico["van_por_iteracion"]
+        iteraciones = sorted(van_por_iter.keys())
+        van = [van_por_iter[i] for i in iteraciones]
+
+        folder = os.path.dirname("convergencia/van_fase_tactica_ciclo_{ciclo}.csv")
+        if folder:
+            os.makedirs(folder, exist_ok=True)
+        with open(f"convergencia/van_fase_tactica_ciclo_{ciclo}.csv", "w") as f:
+            f.write("iteracion,van\n")
+            for i, v in zip(iteraciones, van):
+                f.write(f"{i},{v}\n")
         
         if verbose:
             print(f"    ✅ FASE 2 COMPLETADA")
@@ -607,6 +637,19 @@ def SA_Pendular_Simulacion(config_inicial: ConfiguracionInicial,
             año=0,
             verbose=verbose
         )
+
+        van_por_iter = hist_operacional["van_por_iteracion"]
+        iteraciones = sorted(van_por_iter.keys())
+        van = [van_por_iter[i] for i in iteraciones]
+        print(f"van: {van}")
+
+        folder = os.path.dirname("convergencia/van_operacional_estrategica_ciclo_{ciclo}.csv")
+        if folder:
+            os.makedirs(folder, exist_ok=True)
+        with open(f"convergencia/van_fase_operacional_ciclo_{ciclo}.csv", "w") as f:
+            f.write("iteracion,van\n")
+            for i, v in zip(iteraciones, van):
+                f.write(f"{i},{v}\n")
         
         if verbose:
             print(f"    ✅ FASE 3 COMPLETADA")
