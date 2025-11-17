@@ -353,7 +353,7 @@ def SA_fase_simulacion(config_inicial, fase: str, año: int = 0, verbose: bool =
     S_actual = config_inicial.copy()
     S_mejor = config_inicial.copy()
     
-    costo_actual = evaluar_fase_simulacion(S_actual, fase, año, n_rep=10)  # Pocas réplicas para SA
+    costo_actual = evaluar_fase_simulacion(S_actual, fase, año, n_rep=5)  # Pocas réplicas para SA
     costo_mejor = costo_actual
     
     # Temperatura
@@ -390,13 +390,20 @@ def SA_fase_simulacion(config_inicial, fase: str, año: int = 0, verbose: bool =
             # Evaluar todos los vecinos y elegir el mejor
             mejor_vecino = None
             mejor_costo_vecino = float('inf')
-            print("ACTUAL", costo_actual)
             
             for vecino in vecinos:
+<<<<<<< HEAD
                 print(vecino)
                 costo_v = evaluar_fase_simulacion(vecino, fase, año, n_rep=10)  # Muy pocas réplicas
                 print("Vecino", costo_v)
+=======
+                costo_v = evaluar_fase_simulacion(vecino, fase, año, n_rep=5)  # Muy pocas réplicas
+                # print(f"Vecino: {costo_v}")
+>>>>>>> e376380db9f492011517d8b9fa7dd89782a0488b
                 if costo_v < mejor_costo_vecino:
+                    print(f"Nuevo mejor vecino: {costo_v}, mayor a {mejor_costo_vecino}")
+                    #imprimir_configuracion(vecino, fase)
+                    print(f"Vecino: {vecino}, fase: {fase}")
                     mejor_costo_vecino = costo_v
                     mejor_vecino = vecino
             
@@ -405,14 +412,16 @@ def SA_fase_simulacion(config_inicial, fase: str, año: int = 0, verbose: bool =
         else:
             # Global: genera 1 vecino con perturbación grande
             S_vecino = generar_vecino(S_actual, fase, "global")
-
             costo_vecino = evaluar_fase_simulacion(S_vecino, fase, año, n_rep=5)
         
         # Criterio de Metropolis
         delta = costo_vecino - costo_actual
+        print(f"🔁 Iter {iteracion}: Costo actual={costo_actual:.2e}, Costo vecino={costo_vecino:.2e}, Delta={delta:.2e}, T={T:.1f}")
         
         if delta < 0:
             # Mejor solución: aceptar siempre
+            print(f"mejor solucion aceptada")
+            print(f"S_vecino: {S_vecino}")
             S_actual = S_vecino
             costo_actual = costo_vecino
             historial["aceptaciones"] += 1
@@ -422,7 +431,7 @@ def SA_fase_simulacion(config_inicial, fase: str, año: int = 0, verbose: bool =
                 costo_mejor = costo_actual
                 
                 if verbose:
-                    print(f"  Iter {iteracion:4d}: ✓ Nuevo mejor! costo={costo_mejor:.2e}, T={T:.1f}")
+                    print(f" ✅ Iter {iteracion:4d}: ✓ Nuevo mejor! costo={costo_mejor:.2e}, T={T:.1f}")
                     print(S_actual)
             elif verbose and iteracion % 10 == 0:
                 print(f"  Iter {iteracion:4d}: ✓ Mejora local costo={costo_actual:.2e}, T={T:.1f}")
@@ -432,12 +441,12 @@ def SA_fase_simulacion(config_inicial, fase: str, año: int = 0, verbose: bool =
             S_actual = S_vecino
             costo_actual = costo_vecino
             historial["aceptaciones"] += 1
-            if verbose and iteracion % 10 == 0:
-                print(f"  Iter {iteracion:4d}: ~ Aceptado peor costo={costo_actual:.2e}, T={T:.1f}")
+            # if verbose and iteracion % 10 == 0:
+            print(f" ✅ Iter {iteracion:4d}: ~ Aceptado peor costo={costo_actual:.2e}, T={T:.1f}")
         else:
             historial["rechazos"] += 1
-            if verbose and iteracion % 10 == 0:
-                print(f"  Iter {iteracion:4d}: ✗ Rechazado costo={costo_vecino:.2e}, T={T:.1f}")
+            # if verbose and iteracion % 10 == 0:
+            print(f" ❌ Iter {iteracion:4d}: ✗ Rechazado costo={costo_vecino:.2e}, T={T:.1f}")
         
         # Enfriamiento
         T = max(T * alpha, T_min)
@@ -555,14 +564,15 @@ def SA_Pendular_Simulacion(config_inicial: ConfiguracionInicial,
             print(f"    Configuración resultante: {dict(estrategica_nueva.cajas_por_tipo)}")
         
         # --- FASE 2: TÁCTICA ---
+        # Actualizar restricción superior
+        tactica_actual.config_estrategica = estrategica_nueva
+        tactica_actual = ajustar_tactica_a_estrategica(tactica_actual)
+        
         if verbose:
             print(f"\n>>> FASE 2: TÁCTICA")
             print(f"    Objetivo: Decidir cuándo activar cajas por año")
             print(f"    Configuración inicial: {dict(tactica_actual.cajas_por_anio[0])}")
-        
-        # Actualizar restricción superior
-        tactica_actual.config_estrategica = estrategica_nueva
-        tactica_actual = ajustar_tactica_a_estrategica(tactica_actual)
+    
         
         tactica_nueva, costo_tactico, hist_tactico = SA_fase_simulacion(
             config_inicial=tactica_actual,

@@ -64,9 +64,9 @@ def ejecutar_heuristica_2_horas():
     
     # Reducir parámetros para ejecución en 2 horas
     import heuristica_3_etapas
-    heuristica_3_etapas.PARAMETROS_SA["estrategica"]["iter_max"] = 0  # Muy reducido
-    heuristica_3_etapas.PARAMETROS_SA["tactica"]["iter_max"] = 1  # CAMBIARAIURGUYSUBYSUB
-    heuristica_3_etapas.PARAMETROS_SA["operacional"]["iter_max"] = 50 # Reducido
+    heuristica_3_etapas.PARAMETROS_SA["estrategica"]["iter_max"] = 5  # Muy reducido
+    heuristica_3_etapas.PARAMETROS_SA["tactica"]["iter_max"] = 100  # CAMBIARAIURGUYSUBYSUB
+    heuristica_3_etapas.PARAMETROS_SA["operacional"]["iter_max"] = 0 # Reducido
     heuristica_3_etapas.N_REPLICAS_EVALUACION = 2  # Muy reducido
     
     print(f"  - Iteraciones estratégica: 30 (muy reducido)")
