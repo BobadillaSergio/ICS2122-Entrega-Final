@@ -173,6 +173,15 @@ Gastos_operacionales = {
 Tasa_impositiva = 0.27
 Tasa_de_capital_propio = 0.0854
 
+#caso demanda maxima en cada año
+# PROYECCION_DEMANDA = {
+#     2025: 1,
+#     2026: 1.02352316,
+#     2027: 1.04474234,
+#     2028: 1.06280329,
+#     2029: 1.07313915,
+#     2030: 1.08347214
+# }
 PROYECCION_DEMANDA = {
     2025: 1,
     2026: 1.005073575,
@@ -182,7 +191,8 @@ PROYECCION_DEMANDA = {
     2030: 1.026550779
 }
 
-DISCOUNT_RATE_ANUAL = 0.854
+
+DISCOUNT_RATE_ANUAL = 0.0854
 SL_THRESHOLD_SEC = 300
 
 # Cargar datos globales (se hace UNA vez al inicio)

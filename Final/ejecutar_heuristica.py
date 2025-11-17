@@ -124,9 +124,9 @@ def ejecutar_heuristica_completa():
     
     # Reducir parámetros para ejecución en 2 horas
     import heuristica_3_etapas
-    heuristica_3_etapas.PARAMETROS_SA["estrategica"]["iter_max"] = 50  # Reducido de 200
-    heuristica_3_etapas.PARAMETROS_SA["tactica"]["iter_max"] = 50     # Reducido de 200
-    heuristica_3_etapas.PARAMETROS_SA["operacional"]["iter_max"] = 100 # Reducido de 300
+    heuristica_3_etapas.PARAMETROS_SA["estrategica"]["iter_max"] = 100  # Reducido de 200
+    heuristica_3_etapas.PARAMETROS_SA["tactica"]["iter_max"] = 100     # Reducido de 200
+    heuristica_3_etapas.PARAMETROS_SA["operacional"]["iter_max"] = 3 # Reducido de 300
     heuristica_3_etapas.N_REPLICAS_EVALUACION = 3  # Reducido de 5
     
     print(f"  - Iteraciones estratégica: 50 (reducido)")
@@ -140,7 +140,7 @@ def ejecutar_heuristica_completa():
     resultado = SA_Pendular_Simulacion(
         config_inicial=config_inicial,
         max_ciclos=3,  # 3 ciclos completos
-        tol_convergencia=0.01,  # 1% de mejora mínima (más estricto)
+        tol_convergencia=0.001,  # 0.1% de mejora mínima (más estricto) #cambiado, antes 1%
         verbose=True
     )
     
