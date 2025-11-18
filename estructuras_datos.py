@@ -163,14 +163,47 @@ class ConfigOperacional:
     horarios: Dict[DayType, Dict[int, Dict[LaneType, List[int]]]] = field(default_factory=dict)
     config_tactica: ConfigTactica = None  # Restricción superior
     anio_actual: int = 0  # Año de operación (0-4)
+    horarios_por_anio: Dict[int, Dict[DayType, Dict[int, Dict[LaneType, List[int]]]]] = field(default_factory=dict)
     
     def __post_init__(self):
         # Inicializar estructura si no se proporciona
         if not self.horarios:
-            for dia in DayType:
-                self.horarios[dia] = {}
-                for hora in range(8, 22):  # 8:00 - 22:00
-                    self.horarios[dia][hora] = {lt: [] for lt in LaneType}
+            self.horarios = self._estructura_vacia()
+        # Guardar horarios iniciales (pueden estar vacíos)
+        self.guardar_horarios_actual()
+    
+    def _estructura_vacia(self) -> Dict[DayType, Dict[int, Dict[LaneType, List[int]]]]:
+        """Crea una estructura vacía de horarios"""
+        estructura = {}
+        for dia in DayType:
+            estructura[dia] = {}
+            for hora in range(8, 22):  # 8:00 - 22:00
+                estructura[dia][hora] = {lt: [] for lt in LaneType}
+        return estructura
+    
+    def activar_anio(self, anio: int):
+        """Activa un año específico, cargando sus horarios si existen"""
+        self.anio_actual = anio
+        if anio in self.horarios_por_anio:
+            self.horarios = copy.deepcopy(self.horarios_por_anio[anio])
+        else:
+            # Si no hay horarios para este año, inicializar vacío
+            self.horarios = self._estructura_vacia()
+    
+    def guardar_horarios_actual(self):
+        """Guarda los horarios actuales para el año activo"""
+        self.horarios_por_anio[self.anio_actual] = copy.deepcopy(self.horarios)
+    
+    def obtener_horarios_para_anio(self, anio: int) -> Dict[DayType, Dict[int, Dict[LaneType, List[int]]]]:
+        """Obtiene los horarios para un año específico"""
+        if anio in self.horarios_por_anio:
+            return copy.deepcopy(self.horarios_por_anio[anio])
+        elif self.horarios and self.anio_actual == anio:
+            # Si estamos en ese año, devolver horarios actuales
+            return copy.deepcopy(self.horarios)
+        else:
+            # Si no hay horarios para ese año, devolver estructura vacía
+            return self._estructura_vacia()
     
     def es_factible(self, min_cajas_abiertas: int = 2) -> bool:
         """Verifica si la configuración es factible"""
@@ -208,7 +241,8 @@ class ConfigOperacional:
         return ConfigOperacional(
             horarios=copy.deepcopy(self.horarios),
             config_tactica=self.config_tactica.copy() if self.config_tactica else None,
-            anio_actual=self.anio_actual
+            anio_actual=self.anio_actual,
+            horarios_por_anio=copy.deepcopy(self.horarios_por_anio)
         )
     
     def __repr__(self):
@@ -311,6 +345,9 @@ def ajustar_horarios_a_capacidad(operacional: ConfigOperacional) -> ConfigOperac
                     cajas_validas = cajas_validas[:max_disponibles]
                 
                 nuevo_operacional.horarios[dia][hora][tipo] = cajas_validas
+    
+    # Guardar horarios ajustados
+    nuevo_operacional.guardar_horarios_actual()
     
     return nuevo_operacional
 
