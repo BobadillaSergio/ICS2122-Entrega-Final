@@ -182,6 +182,7 @@ Tasa_de_capital_propio = 0.0854
 #     2029: 1.07313915,
 #     2030: 1.08347214
 # }
+
 PROYECCION_DEMANDA = {
     2025: 1,
     2026: 1.005073575,
@@ -203,7 +204,7 @@ SL_THRESHOLD_SEC = 300
 # agrupación efectiva. Aunque se puedan agrupar múltiples cajas en una isla, si la
 # cola visible supera el umbral, los clientes no esperarán (balking).
 CAPACIDAD_POR_ISLA = {
-    LaneType.REGULAR: 5,    # Por defecto sin agrupación, pero se puede cambiar para optimizar
+    LaneType.REGULAR: 3,    # Por defecto sin agrupación, pero se puede cambiar para optimizar
     LaneType.EXPRESS: 5,    # Por defecto sin agrupación, pero se puede cambiar para optimizar
     LaneType.PRIORITY: 5,   # Por defecto sin agrupación, pero se puede cambiar para optimizar
     LaneType.SELF: 5,       # Requerido: múltiplos de 5 (cada isla tiene 5 cajas)
@@ -583,7 +584,7 @@ class SupermarketSimOptimized:
             # Valor por defecto si no se encuentra en el CSV
             # NOTA: El usuario menciona que el umbral óptimo es 2 personas
             # Si el CSV no tiene valores, considerar cambiar este default a 2
-            umbral_cola = 7
+            umbral_cola = 7 # por conversacion con profesor
 
         # Verificar si todas las colas superan el umbral
         # Si todas superan el umbral, el cliente se va (balking)
@@ -730,12 +731,12 @@ class SupermarketSimOptimized:
         """
         Calcula el VAN con estructura temporal correcta:
         t=0: Inversión inicial (CAPEX)
-        t=1-5: Flujos anuales considerando multiplicadores por tipo de día
+        t=1-6: Flujos anuales considerando multiplicadores por tipo de día
         
-        IMPORTANTE: El VAN siempre se calcula para el horizonte de 5 años (2025-2029),
+        IMPORTANTE: El VAN siempre se calcula para el horizonte de 6 años (2025-2030),
         independientemente del año simulado (self.año). El año simulado solo afecta:
         - Los parámetros de demanda y costos usados en la simulación
-        - Pero el VAN siempre es para 2025-2029 (el horizonte completo de la heurística)
+        - Pero el VAN siempre es para 2025-2030 (el horizonte completo de la heurística)
         """
         # t=0: Inversión inicial (CAPEX)
         inversion_inicial = 0
@@ -759,17 +760,17 @@ class SupermarketSimOptimized:
         año_base = 2025
         van_total = -inversion_inicial  # t=0
         
-        # Calcular flujos para los próximos 5 años (2025-2029)
+        # Calcular flujos para los próximos 6 años (2025-2030)
         # El año simulado (self.año) solo afecta los parámetros de simulación,
-        # pero el VAN siempre se calcula para el horizonte completo 2025-2029
-        for t in range(1, 6):  # t=1 a t=5 (años 2025-2029)
-            año_futuro = año_base + (t - 1)  # 2025, 2026, 2027, 2028, 2029
+        # pero el VAN siempre se calcula para el horizonte completo 2025-2030
+        for t in range(1, 7):  # t=1 a t=6 (años 2025-2030)
+            año_futuro = año_base + (t - 1)  # 2025, 2026, 2027, 2028, 2029, 2030
             
             # Ajustar flujo según proyección de demanda del año
             # El flujo base es del año simulado (self.año), lo proyectamos a cada año del horizonte
-            if año_futuro in PROYECCION_DEMANDA and self.año in PROYECCION_DEMANDA:
+            if año_futuro in PROYECCION_DEMANDA and self.año in PROYECCION_DEMANDA: # poner como supuesto que la proyeccion
                 # Ajustar el flujo base del año simulado al año del horizonte
-                factor_demanda = PROYECCION_DEMANDA[año_futuro] / PROYECCION_DEMANDA.get(self.año, 1.0)
+                factor_demanda = PROYECCION_DEMANDA[año_futuro]
             else:
                 factor_demanda = 1.0
             
@@ -785,7 +786,26 @@ class SupermarketSimOptimized:
     def run(self):
         self.env.process(self.generator_llegadas_optimizado())
         sim_time = (CLOSE_HOUR - OPEN_HOUR) * SEC_PER_HOUR
+        # Detener llegadas de nuevos clientes al final del día
         self.env.run(until=sim_time)
+        
+        # IMPORTANTE: Permitir que los clientes en servicio terminen su atención
+        # Esto asegura que todos los clientes que comenzaron a ser atendidos
+        # completen su servicio y se registren correctamente (ingresos, KPIs)
+        # Esperamos hasta que no haya más clientes en servicio
+        max_wait_final = 1200  # Máximo 20 minutos adicional para terminar servicios
+        tiempo_inicio_final = self.env.now
+        
+        while self.env.now < tiempo_inicio_final + max_wait_final:
+            # Contar clientes en servicio
+            clientes_en_servicio = sum(
+                lane.in_service for pool in self.lanes.values() for lane in pool.lanes
+            )
+            if clientes_en_servicio == 0:
+                break
+            # Avanzar tiempo en pequeños incrementos
+            self.env.run(until=min(self.env.now + 60, tiempo_inicio_final + max_wait_final))
+        
         self.operating_cost = self._costos_operativos_del_dia()
 
     def kpis(self) -> Dict[str, float]:
@@ -807,7 +827,7 @@ class SupermarketSimOptimized:
             "ingresos_clp": int(self.revenue),
             "costos_clp": int(self.operating_cost),
             "VAN_dia_clp": int(flujo),
-            "VAN_correcto_5_anios": int(van_correcto),
+            "VAN_correcto_5_anios": int(van_correcto),  # Nombre histórico: ahora calcula 6 años (2025-2030)
             "Inversion_inicial": int(inversion_inicial),
             "Flujo_anual_proyectado": int(flujo_anual),
             "Asignados REGULAR": int(self.clientes_caja[LaneType.REGULAR]),
@@ -1001,7 +1021,7 @@ if __name__ == "__main__":
         van_original_total += van_ponderado
         van_original_por_dia[dt] = van_dia
         
-        print(f"  {dt.value}: VAN_dia=${van_dia:,.0f} (ponderado: ${van_ponderado:,.0f}) | VAN_5años=${van_correcto:,.0f}")
+        print(f"  {dt.value}: VAN_dia=${van_dia:,.0f} (ponderado: ${van_ponderado:,.0f}) | VAN_6años=${van_correcto:,.0f}")
     
     print(f"  📊 VAN TOTAL ORIGINAL: ${van_original_total:,.0f}")
     
@@ -1019,7 +1039,7 @@ if __name__ == "__main__":
         van_actual_total += van_ponderado
         van_actual_por_dia[dt] = van_dia
         
-        print(f"  {dt.value}: VAN_dia=${van_dia:,.0f} (ponderado: ${van_ponderado:,.0f}) | VAN_5años=${van_correcto:,.0f}")
+        print(f"  {dt.value}: VAN_dia=${van_dia:,.0f} (ponderado: ${van_ponderado:,.0f}) | VAN_6años=${van_correcto:,.0f}")
     
     print(f"  📊 VAN TOTAL ACTUAL: ${van_actual_total:,.0f}")
     

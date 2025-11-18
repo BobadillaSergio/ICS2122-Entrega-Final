@@ -175,7 +175,8 @@ def solucion_completa_a_config_simulacion(solucion: SolucionCompleta, año: int 
     
     # Transformar horarios al formato requerido
     horarios = {}
-    for dia, horas_dict in detallada.horarios.items():
+    horarios_origen = detallada.obtener_horarios_para_anio(año)
+    for dia, horas_dict in horarios_origen.items():
         horarios[dia] = {}
         
         # Primero, recolectar todos los horarios por tipo de línea y caja
@@ -235,14 +236,14 @@ def evaluar_configuracion_simulacion(solucion: SolucionCompleta, año: int = 0, 
     - año=1 → Simula con parámetros de 2026, usa configuración de cajas del año 1
     - año=4 → Simula con parámetros de 2029, usa configuración de cajas del año 4
     
-    El VAN SIEMPRE se calcula para el horizonte completo 2025-2029 (5 años),
+    El VAN SIEMPRE se calcula para el horizonte completo 2025-2030 (6 años),
     independientemente del año simulado. Esto es porque la heurística optimiza
-    para el período completo de 5 años.
+    para el período completo de 6 años.
     
     El año afecta:
     1. Configuración de cajas: usa solucion.tactica.cajas_por_anio[año]
     2. Demanda y costos: simula con parámetros del año (2025 + año)
-    3. Cálculo VAN: SIEMPRE calcula VAN para 2025-2029 (horizonte completo)
+    3. Cálculo VAN: SIEMPRE calcula VAN para 2025-2030 (horizonte completo)
     
     Args:
         solucion: SolucionCompleta a evaluar
@@ -250,7 +251,7 @@ def evaluar_configuracion_simulacion(solucion: SolucionCompleta, año: int = 0, 
         n_rep: Número de réplicas
     
     Returns:
-        Dict con KPIs de la simulación, incluyendo VAN_correcto_5_anios (siempre para 2025-2029)
+        Dict con KPIs de la simulación, incluyendo VAN_correcto_5_anios (siempre para 2025-2030)
     """
     config_caja, horarios = solucion_completa_a_config_simulacion(solucion, año)
     
@@ -265,8 +266,8 @@ def evaluar_configuracion_simulacion(solucion: SolucionCompleta, año: int = 0, 
         
         # Multiplicador según tipo de día
         multiplicador = 3 if dia in [DayType.NORMAL, DayType.OFERTA] else 1
-        # Usar VAN correcto de 5 años en lugar de VAN del día
-        # VAN_correcto_5_anios ya considera el año de inicio correcto
+        # Usar VAN correcto de 6 años (2025-2030) en lugar de VAN del día
+        # VAN_correcto_5_anios (nombre histórico, pero ahora calcula 6 años) ya considera el año de inicio correcto
         van_correcto = kpi.get('VAN_correcto_5_anios', kpi['VAN_dia_clp'])
         van_total += van_correcto * multiplicador
     
@@ -307,6 +308,8 @@ def evaluar_fase_simulacion(config, fase: str, año: int = 0, n_rep: int = 10) -
                 for tipo in LaneType:
                     num_cajas = tactica.cajas_por_anio[año][tipo]
                     operacional.horarios[dia][hora][tipo] = list(range(num_cajas))
+        # Guardar horarios en horarios_por_anio para el año actual
+        operacional.guardar_horarios_actual()
         solucion = SolucionCompleta(estrategica=config, tactica=tactica, operacional=operacional)
     
     elif fase == "tactica":
@@ -324,6 +327,8 @@ def evaluar_fase_simulacion(config, fase: str, año: int = 0, n_rep: int = 10) -
                 for tipo in LaneType:
                     num_cajas = config.cajas_por_anio[año][tipo]
                     operacional.horarios[dia][hora][tipo] = list(range(num_cajas))
+        # Guardar horarios en horarios_por_anio para el año actual
+        operacional.guardar_horarios_actual()
         solucion = SolucionCompleta(
             estrategica=config.config_estrategica,
             tactica=config,
@@ -647,47 +652,99 @@ def SA_Pendular_Simulacion(config_inicial: ConfiguracionInicial,
                                   for hora in range(8, 22) for tipo in LaneType)
             print(f"    Cajas abiertas promedio (antes): {total_cajas_antes/14:.1f}")
         
-        operacional_nueva, costo_operacional, hist_operacional = SA_fase_simulacion(
-            config_inicial=operacional_actual,
-            fase="operacional",
-            año=0,
-            verbose=verbose
-        )
+        # Optimizar fase operacional para cada año (0-4)
+        operacional_por_anio = {}
+        historial_operacional = {}
+        for anio_oper in range(5):
+            if verbose:
+                print(f"\n    → Optimizando año operacional {anio_oper} (Año real {2025 + anio_oper})")
 
-        van_por_iter = hist_operacional["van_por_iteracion"]
-        iteraciones = sorted(van_por_iter.keys())
-        van = [van_por_iter[i] for i in iteraciones]
-        print(f"van: {van}")
-
-        folder = os.path.dirname("convergencia/van_operacional_estrategica_ciclo_{ciclo}.csv")
-        if folder:
-            os.makedirs(folder, exist_ok=True)
-        with open(f"convergencia/van_fase_operacional_ciclo_{ciclo}.csv", "w") as f:
-            f.write("iteracion,van\n")
-            for i, v in zip(iteraciones, van):
-                f.write(f"{i},{v}\n")
-        
-        if verbose:
-            print(f"    ✅ FASE 3 COMPLETADA")
-            total_cajas_despues = sum(len(operacional_nueva.horarios[DayType.NORMAL][hora][tipo]) 
-                                    for hora in range(8, 22) for tipo in LaneType)
+            config_inicial_anio = operacional_actual.copy()
+            config_inicial_anio.config_tactica = tactica_nueva
+            config_inicial_anio.activar_anio(anio_oper)
             
-            print(f"    Cajas abiertas promedio (después): {total_cajas_despues/14:.1f}")
-            # PONER PRINTS que muestre los horarios, y cuantas cajas hay abiertas de cada tipo, seria una matriz, filas de horarios, y cada columna seria un tipo de caja.
-            try:
-                tipos = [t for t in LaneType]
-                encabezado = "Hora  " + "  ".join(f"{t.value:>8}" for t in tipos)
-                for dia in [DayType.NORMAL, DayType.OFERTA, DayType.DOMINGO]:
-                    print(f"\n    Horarios - {dia.value}:")
-                    print(f"    {encabezado}")
+            # Verificar si los horarios del año están vacíos o no existen
+            horarios_vacios = True
+            for dia in DayType:
+                if dia in config_inicial_anio.horarios:
                     for hora in range(8, 22):
-                        cuentas = [len(operacional_nueva.horarios[dia][hora].get(tipo, [])) 
-                                   for tipo in tipos]
-                        fila = f"    {hora:02d}: " + "  ".join(f"{c:8d}" for c in cuentas)
-                        print(fila)
-            except Exception as e:
-                # No interrumpir ejecución por un print
-                print(f"    (Advertencia) No se pudo desplegar matriz de horarios: {e}")
+                        if hora in config_inicial_anio.horarios[dia]:
+                            for tipo in LaneType:
+                                if len(config_inicial_anio.horarios[dia][hora].get(tipo, [])) > 0:
+                                    horarios_vacios = False
+                                    break
+                            if not horarios_vacios:
+                                break
+                        if not horarios_vacios:
+                            break
+                if not horarios_vacios:
+                    break
+            
+            # Si los horarios del año están vacíos, inicializarlos con todas las cajas disponibles
+            if horarios_vacios:
+                # Inicializar horarios: todas las cajas abiertas 8:00-22:00
+                for dia in DayType:
+                    if dia not in config_inicial_anio.horarios:
+                        config_inicial_anio.horarios[dia] = {}
+                    for hora in range(8, 22):
+                        if hora not in config_inicial_anio.horarios[dia]:
+                            config_inicial_anio.horarios[dia][hora] = {}
+                        for tipo in LaneType:
+                            num_cajas = tactica_nueva.cajas_por_anio[anio_oper][tipo]
+                            config_inicial_anio.horarios[dia][hora][tipo] = list(range(num_cajas))
+                config_inicial_anio.guardar_horarios_actual()
+            
+            config_inicial_anio = ajustar_horarios_a_capacidad(config_inicial_anio)
+
+            operacional_opt, costo_oper_anio, hist_oper_anio = SA_fase_simulacion(
+                config_inicial=config_inicial_anio,
+                fase="operacional",
+                año=anio_oper,
+                verbose=verbose
+            )
+
+            operacional_opt.activar_anio(anio_oper)
+            operacional_opt.guardar_horarios_actual()
+            operacional_por_anio[anio_oper] = operacional_opt
+            historial_operacional[anio_oper] = hist_oper_anio
+
+            van_por_iter = hist_oper_anio["van_por_iteracion"]
+            iteraciones = sorted(van_por_iter.keys())
+            folder = os.path.dirname(f"convergencia/van_fase_operacional_ciclo_{ciclo}_anio_{anio_oper}.csv")
+            if folder:
+                os.makedirs(folder, exist_ok=True)
+            with open(f"convergencia/van_fase_operacional_ciclo_{ciclo}_anio_{anio_oper}.csv", "w") as f:
+                f.write("iteracion,van\n")
+                for i in iteraciones:
+                    f.write(f"{i},{van_por_iter[i]}\n")
+
+            if verbose:
+                print(f"      VAN iteraciones año {anio_oper}: {[van_por_iter[i] for i in iteraciones]}")
+                total_cajas_despues = sum(len(operacional_opt.horarios[DayType.NORMAL][hora][tipo])
+                                          for hora in range(8, 22) for tipo in LaneType)
+                print(f"      Cajas abiertas promedio (después): {total_cajas_despues/14:.1f}")
+                try:
+                    tipos = [t for t in LaneType]
+                    encabezado = "Hora  " + "  ".join(f"{t.value:>8}" for t in tipos)
+                    for dia in [DayType.NORMAL, DayType.OFERTA, DayType.DOMINGO]:
+                        print(f"\n      Horarios - {dia.value} (año {anio_oper}):")
+                        print(f"      {encabezado}")
+                        for hora in range(8, 22):
+                            cuentas = [len(operacional_opt.horarios[dia][hora].get(tipo, []))
+                                       for tipo in tipos]
+                            fila = f"      {hora:02d}: " + "  ".join(f"{c:8d}" for c in cuentas)
+                            print(fila)
+                except Exception as e:
+                    print(f"      (Advertencia) No se pudo desplegar matriz de horarios: {e}")
+
+        # Consolidar resultados operacionales (guardar horarios por año en una sola configuración)
+        operacional_nueva = operacional_actual.copy()
+        operacional_nueva.config_tactica = tactica_nueva
+        operacional_nueva.horarios_por_anio = {}
+        for anio_oper, config_op in operacional_por_anio.items():
+            operacional_nueva.horarios_por_anio[anio_oper] = copy.deepcopy(config_op.horarios)
+        operacional_nueva.activar_anio(0)
+        operacional_nueva.guardar_horarios_actual()
         
         # --- EVALUACIÓN GLOBAL COMPLETA ---
         if verbose:
