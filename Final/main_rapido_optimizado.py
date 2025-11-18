@@ -658,7 +658,7 @@ class SupermarketSimOptimized:
 
                 # ⭐ Usar optimizador Numba
                 dias = {DayType.NORMAL: 'normal', DayType.DOMINGO: 'domingo', DayType.OFERTA: 'oferta'}
-                hour = int(self.env.now / 3600) + 8
+                hour = min(int(self.env.now / 3600) + 8, 21)  # Limitar a hora 21 (última hora con datos)
                 key = transformacion_profile_inverso[c.profile] + "_" + dias[self.day] + "_" + str(hour)
                 self.perdidas_por_ventas += PROFIT_OPTIMIZER.get_ingreso(key, c.items)
                 return
@@ -681,7 +681,7 @@ class SupermarketSimOptimized:
 
             # ⭐ Usar optimizador Numba
             dias = {DayType.NORMAL: 'normal', DayType.DOMINGO: 'domingo', DayType.OFERTA: 'oferta'}
-            hour = int(self.env.now / 3600) + 8
+            hour = min(int(self.env.now / 3600) + 8, 21)  # Limitar a hora 21 (última hora con datos)
             key = transformacion_profile_inverso[c.profile] + "_" + dias[self.day] + "_" + str(hour)
             self.revenue += PROFIT_OPTIMIZER.get_ingreso(key, c.items)
             self.served_flags.append(True)
