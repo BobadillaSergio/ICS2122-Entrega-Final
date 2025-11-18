@@ -141,6 +141,7 @@ def config_inicial_a_tactica(config_inicial: ConfiguracionInicial) -> ConfigTact
 
 def config_inicial_a_operacional(config_inicial: ConfiguracionInicial) -> ConfigOperacional:
     """Convierte configuración inicial a ConfigOperacional"""
+    tactica = config_inicial_a_tactica(config_inicial)
     horarios = {}
     
     for dia in DayType:
@@ -150,7 +151,10 @@ def config_inicial_a_operacional(config_inicial: ConfiguracionInicial) -> Config
             for tipo in LaneType:
                 # Convertir horarios de la configuración inicial
                 cajas_abiertas = []
-                if tipo in config_inicial.horarios_caja[dia]:
+                num_cajas_disponibles = tactica.cajas_por_anio[0][tipo]
+                
+                if tipo in config_inicial.horarios_caja.get(dia, {}):
+                    # Usar horarios definidos en la configuración inicial
                     for caja_id, horario_caja in config_inicial.horarios_caja[dia][tipo]:
                         # Verificar si la caja está abierta en esta hora
                         hora_actual = (hora - 8) * 60
@@ -158,13 +162,22 @@ def config_inicial_a_operacional(config_inicial: ConfiguracionInicial) -> Config
                             if inicio <= hora_actual < fin:
                                 cajas_abiertas.append(caja_id)
                                 break
+                else:
+                    # Si no hay horarios definidos para este tipo, abrir todas las cajas disponibles
+                    # durante todo el día (comportamiento por defecto)
+                    cajas_abiertas = list(range(num_cajas_disponibles))
+                
                 horarios[dia][hora][tipo] = cajas_abiertas
     
-    return ConfigOperacional(
+    operacional = ConfigOperacional(
         horarios=horarios,
-        config_tactica=config_inicial_a_tactica(config_inicial),
+        config_tactica=tactica,
         anio_actual=0
     )
+    # Guardar horarios iniciales
+    operacional.guardar_horarios_actual()
+    
+    return operacional
 
 
 def solucion_completa_a_config_simulacion(solucion: SolucionCompleta, año: int = 0) -> Tuple[Dict, Dict]:
@@ -176,19 +189,38 @@ def solucion_completa_a_config_simulacion(solucion: SolucionCompleta, año: int 
     # Transformar horarios al formato requerido
     horarios = {}
     horarios_origen = detallada.obtener_horarios_para_anio(año)
-    for dia, horas_dict in horarios_origen.items():
+    
+    for dia in DayType:
         horarios[dia] = {}
         
         # Primero, recolectar todos los horarios por tipo de línea y caja
         horarios_por_tipo_caja = {}
         
-        for hora, tipos_dict in horas_dict.items():
+        # Si horarios_origen está vacío o no tiene este día, inicializar vacío
+        if not horarios_origen or dia not in horarios_origen:
+            horas_dict = {}
+        else:
+            horas_dict = horarios_origen[dia]
+        
+        for hora in range(8, 22):
             # Convertir hora a minutos desde medianoche
             hora_en_minutos = (hora - 8) * 60
             
-            for tipo_lane, caja_ids in tipos_dict.items():
+            # Obtener tipos_dict para esta hora, o vacío si no existe
+            tipos_dict = horas_dict.get(hora, {})
+            
+            for tipo_lane in LaneType:
                 if tipo_lane not in horarios_por_tipo_caja:
                     horarios_por_tipo_caja[tipo_lane] = {}
+                
+                # Obtener caja_ids para este tipo, o lista vacía si no existe
+                caja_ids = tipos_dict.get(tipo_lane, [])
+                
+                # Si no hay cajas definidas pero hay cajas disponibles en config_caja,
+                # crear horarios por defecto (todas las cajas abiertas)
+                num_cajas_disponibles = config_caja.get(tipo_lane, 0)
+                if not caja_ids and num_cajas_disponibles > 0:
+                    caja_ids = list(range(num_cajas_disponibles))
                 
                 for caja_id in caja_ids:
                     if caja_id not in horarios_por_tipo_caja[tipo_lane]:
@@ -196,29 +228,45 @@ def solucion_completa_a_config_simulacion(solucion: SolucionCompleta, año: int 
                     horarios_por_tipo_caja[tipo_lane][caja_id].append(hora_en_minutos)
         
         # Ahora convertir las listas de minutos a intervalos de apertura/cierre
-        for tipo_lane, cajas_dict in horarios_por_tipo_caja.items():
+        for tipo_lane in LaneType:
             horarios[dia][tipo_lane] = []
             
-            for caja_id, minutos_list in cajas_dict.items():
-                # Ordenar los minutos y agrupar en intervalos consecutivos
-                minutos_list.sort()
-                intervalos = []
-                
-                if minutos_list:
-                    inicio = minutos_list[0]
-                    fin = minutos_list[0] + 60
+            # Si no hay horarios para este tipo pero hay cajas disponibles, crear horarios por defecto
+            num_cajas_disponibles = config_caja.get(tipo_lane, 0)
+            if tipo_lane not in horarios_por_tipo_caja and num_cajas_disponibles > 0:
+                # Crear horarios por defecto: todas las cajas abiertas 8:00-22:00
+                for caja_id in range(num_cajas_disponibles):
+                    intervalos = [(0, (22 - 8) * 60)]  # 0 a 840 minutos (14 horas)
+                    horarios[dia][tipo_lane].append((caja_id, intervalos))
+            elif tipo_lane in horarios_por_tipo_caja:
+                cajas_dict = horarios_por_tipo_caja[tipo_lane]
+                for caja_id, minutos_list in cajas_dict.items():
+                    # Ordenar los minutos y agrupar en intervalos consecutivos
+                    minutos_list.sort()
+                    intervalos = []
                     
-                    for i in range(1, len(minutos_list)):
-                        if minutos_list[i] == minutos_list[i-1] + 60:  # Diferencia de 60 minutos (1 hora)
-                            fin = minutos_list[i] + 60
-                        else:
-                            intervalos.append((inicio, fin))
-                            inicio = minutos_list[i]
-                            fin = minutos_list[i] + 60
+                    if minutos_list:
+                        inicio = minutos_list[0]
+                        fin = minutos_list[0] + 60
+                        
+                        for i in range(1, len(minutos_list)):
+                            if minutos_list[i] == minutos_list[i-1] + 60:  # Diferencia de 60 minutos (1 hora)
+                                fin = minutos_list[i] + 60
+                            else:
+                                intervalos.append((inicio, fin))
+                                inicio = minutos_list[i]
+                                fin = minutos_list[i] + 60
+                        
+                        intervalos.append((inicio, fin))
                     
-                    intervalos.append((inicio, fin))
-                
-                horarios[dia][tipo_lane].append((caja_id, intervalos))
+                    # Si no hay intervalos pero la caja existe, crear horario por defecto
+                    if not intervalos:
+                        intervalos = [(0, (22 - 8) * 60)]
+                    
+                    horarios[dia][tipo_lane].append((caja_id, intervalos))
+            else:
+                # No hay cajas de este tipo, lista vacía
+                horarios[dia][tipo_lane] = []
     
     return config_caja, horarios
 

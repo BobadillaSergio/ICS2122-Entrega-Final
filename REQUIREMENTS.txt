@@ -1,0 +1,32 @@
+# Requirements para Simulación y Optimización de Cajas de Supermercado
+# Python 3.11+
+
+# Librerías principales de simulación y optimización
+simpy==4.1.1              # Simulación de eventos discretos
+numpy==1.26.4             # Operaciones numéricas y arrays
+pandas==2.2.1             # Manipulación de datos y lectura de CSVs/Excel
+scipy==1.14.0              # Estadísticas (gaussian_kde) y funciones científicas
+
+# Optimización y paralelización
+numba==0.60.0              # Compilación JIT para funciones críticas
+ray==2.50.1                # Paralelización de simulaciones
+
+# Lectura de archivos Excel
+openpyxl==3.1.2            # Lectura de archivos .xlsx
+
+# Visualización (opcional, para análisis y gráficos)
+matplotlib==3.9.2          # Gráficos y visualizaciones
+seaborn==0.13.2            # Visualizaciones estadísticas avanzadas
+
+# Nota: Las siguientes son dependencias de las librerías anteriores
+# y se instalarán automáticamente:
+# - typing (built-in en Python 3.5+)
+# - dataclasses (built-in en Python 3.7+)
+# - enum (built-in)
+# - pickle (built-in)
+# - csv (built-in)
+# - math (built-in)
+# - random (built-in)
+# - time (built-in)
+# - os (built-in)
+# - sys (built-in)
