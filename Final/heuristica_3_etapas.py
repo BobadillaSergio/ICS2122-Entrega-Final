@@ -19,6 +19,7 @@ import copy
 from typing import Dict, List, Tuple, Optional
 from dataclasses import dataclass
 import numpy as np
+import json
 
 # Agregar paths
 sys.path.append("..")
@@ -438,9 +439,11 @@ def SA_fase_simulacion(config_inicial, fase: str, año: int = 4, verbose: bool =
         "aceptaciones": 0,
         "rechazos": 0,
         #Guardar VAN (positivo) por iteración. La key es el número de iteración y el valor es el VAN positivo.
-        "van_por_iteracion": {}
+        "van_por_iteracion": {},
+        "config_por_iteracion": {}
     }
     historial["van_por_iteracion"][0] = -costo_actual  # Guardar VAN positivo
+    historial["config_por_iteracion"][0] = copy.deepcopy(S_actual)
     
     if verbose:
         print(f"\n{'='*60}")
@@ -525,6 +528,7 @@ def SA_fase_simulacion(config_inicial, fase: str, año: int = 4, verbose: bool =
         historial["costos"].append(costo_actual)
         historial["temperaturas"].append(T)
         historial["van_por_iteracion"][iteracion] = -costo_actual  # Guardar VAN positivo
+        historial["config_por_iteracion"][iteracion] = copy.deepcopy(S_actual)
         
         # Imprimir progreso cada 50 iteraciones
         if verbose and iteracion % 50 == 0:
@@ -640,6 +644,12 @@ def SA_Pendular_Simulacion(config_inicial: ConfiguracionInicial,
             f.write("iteracion,van\n")
             for i, v in zip(iteraciones, van):
                 f.write(f"{i},{v}\n")
+        #escribir archivo de la configuración por iteración
+        with open(f"convergencia/config_fase_estrategica_ciclo_{ciclo}.csv", "w") as f:
+            f.write("iteracion,configuracion\n")
+            for i in iteraciones:
+                config_iter = hist_estrategico["config_por_iteracion"][i]
+                f.write(f"{i},{dict(config_iter.cajas_por_tipo)}\n")
         
         if verbose:
             print(f"    ✅ FASE 1 COMPLETADA")
@@ -674,6 +684,11 @@ def SA_Pendular_Simulacion(config_inicial: ConfiguracionInicial,
             f.write("iteracion,van\n")
             for i, v in zip(iteraciones, van):
                 f.write(f"{i},{v}\n")
+        with open(f"convergencia/config_fase_tactica_ciclo_{ciclo}.csv", "w") as f:
+            f.write("iteracion,configuracion\n")
+            for i in iteraciones:
+                config_iter = hist_tactico["config_por_iteracion"][i]
+                f.write(f"{i},{dict(config_iter.cajas_por_anio)}\n")
         
         if verbose:
             print(f"    ✅ FASE 2 COMPLETADA")
@@ -765,6 +780,26 @@ def SA_Pendular_Simulacion(config_inicial: ConfiguracionInicial,
                 f.write("iteracion,van\n")
                 for i in iteraciones:
                     f.write(f"{i},{van_por_iter[i]}\n")
+            with open(f"convergencia/config_fase_operacional_ciclo_{ciclo}_anio_{anio_oper}.csv", "w") as f:
+                f.write("iteracion,configuracion\n")
+                for i in iteraciones:
+                    config_iter = hist_oper_anio["config_por_iteracion"][i]
+                    # Preferir horarios_por_anio si está disponible, sino usar horarios actuales
+                    if hasattr(config_iter, "horarios_por_anio") and getattr(config_iter, "horarios_por_anio"):
+                        horarios_raw = config_iter.horarios_por_anio.get(getattr(config_iter, "anio_actual", 0), config_iter.horarios)
+                    else:
+                        horarios_raw = config_iter.horarios
+                    # Convertir claves Enum a strings para serializar a JSON
+                    horarios_serializable = {}
+                    for dia, horas in horarios_raw.items():
+                        dia_k = dia.value if hasattr(dia, "value") else str(dia)
+                        horarios_serializable[dia_k] = {}
+                        for hora, tipos in horas.items():
+                            horarios_serializable[dia_k][str(hora)] = {}
+                            for tipo, cajas in tipos.items():
+                                tipo_k = tipo.value if hasattr(tipo, "value") else str(tipo)
+                                horarios_serializable[dia_k][str(hora)][tipo_k] = cajas
+                    f.write(f"{i},{json.dumps(horarios_serializable)}\n")
 
             if verbose:
                 print(f"      VAN iteraciones año {anio_oper}: {[van_por_iter[i] for i in iteraciones]}")

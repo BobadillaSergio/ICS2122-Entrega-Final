@@ -315,10 +315,12 @@ def ajustar_tactica_a_estrategica(tactica: ConfigTactica) -> ConfigTactica:
     for anio in range(5):
         for tipo in LaneType:
             max_disponibles = nueva_tactica.config_estrategica.cajas_por_tipo[tipo]
+            # print(f"maximas disponibles para año {anio}, tipo {tipo}: {max_disponibles}")
             cajas_actuales = nueva_tactica.cajas_por_anio[anio][tipo]
+            # print(f"cajas actuales para año {anio}, tipo {tipo}: {cajas_actuales}")
             
             # Limitar a las disponibles estratégicamente
-            nueva_tactica.cajas_por_anio[anio][tipo] = min(cajas_actuales, max_disponibles)
+            nueva_tactica.cajas_por_anio[anio][tipo] = max_disponibles #antes min(cajas_actuales, max_disponibles)
     
     return nueva_tactica
 
