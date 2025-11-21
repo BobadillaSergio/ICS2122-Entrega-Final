@@ -374,7 +374,7 @@ def generar_vecinos_operacionales_locales(config: ConfigOperacional, dia: DayTyp
                 print(f"🔴 CERRAR {cerradas} caja en {dia} {hora}h {tipo.name} - Carga: {estado['carga']:.2f}")
 
     # Combinar ambos tipos de vecinos
-    vecinos = vecinos_cerrar
+    vecinos = vecinos_cerrar + vecinos_abrir
     return vecinos
 
 
