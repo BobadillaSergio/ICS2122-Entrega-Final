@@ -326,7 +326,7 @@ def evaluar_configuracion_simulacion(solucion: SolucionCompleta, año: int = 0, 
     }
 
 
-def evaluar_fase_simulacion(config, fase: str, año: int = 0, n_rep: int = 10) -> float:
+def evaluar_fase_simulacion(config, fase: str, año: int = 0, dia = None,  n_rep: int = 10, condicion = True) -> float:
     """
     Evalúa una configuración de una fase específica usando simulación.
     
@@ -391,6 +391,17 @@ def evaluar_fase_simulacion(config, fase: str, año: int = 0, n_rep: int = 10) -
             tactica=config.config_tactica,
             operacional=config
         )
+        if condicion == True:
+            config_caja, horarios = solucion_completa_a_config_simulacion(solucion, año)
+            kpi = simular_varios(dia, config_caja, horarios, 2025 + año, n_rep=n_rep)
+            
+            # Multiplicador según tipo de día
+            multiplicador = 3 if dia in [DayType.NORMAL, DayType.OFERTA] else 1
+            # Usar VAN correcto de 6 años (2025-2030) en lugar de VAN del día
+            # VAN_correcto_5_anios (nombre histórico, pero ahora calcula 6 años) ya considera el año de inicio correcto
+            van_correcto = kpi.get('VAN_correcto_5_anios', kpi['VAN_dia_clp'])
+            van_total = van_correcto * multiplicador
+            return -van_total
     
     else:
         raise ValueError(f"Fase desconocida: {fase}")
@@ -423,7 +434,7 @@ def SA_fase_simulacion(config_inicial, fase: str, año: int = 4, verbose: bool =
     S_actual = config_inicial.copy()
     S_mejor = config_inicial.copy()
     
-    costo_actual = evaluar_fase_simulacion(S_actual, fase, año, n_rep=3)  # Pocas réplicas para SA
+    costo_actual = evaluar_fase_simulacion(S_actual, fase, año, n_rep=10, condicion = False)  # Pocas réplicas para SA
     costo_mejor = costo_actual
     
     
@@ -453,12 +464,30 @@ def SA_fase_simulacion(config_inicial, fase: str, año: int = 4, verbose: bool =
         print(f"Parámetros: T_ini={T}, alpha={alpha}, iter_max={params['iter_max']}")
     
     t_inicio = time.time()
+
+    vecinos_evaluados = {}
+    def fase_vecino(v, fase):
+        if fase == "estrategica":
+            return v.cajas_por_tipo
+        elif fase == "operacional":
+            return v.horarios
+        elif fase == "tactica":
+            return v.cajas_por_anio
+    dias = [DayType.NORMAL, DayType.OFERTA, DayType.DOMINGO]
+    indice = 0
+
     
     for iteracion in range(1, params["iter_max"] + 1):
+        if fase == "operacional":
+            costo_actual__ = evaluar_fase_simulacion(S_mejor, fase, año, dias[indice], n_rep = 10)
         # Generar vecino
         if random.random() < params["prob_greedy"]:
             # Local: genera lista de vecinos y elige el mejor
-            vecinos = generar_vecino(S_actual, fase, "local")
+            if iteracion == params['iter_max'] / 3:
+                indice += 1
+            if iteracion == params['iter_max'] * 2 / 3:
+                indice += 1
+            vecinos = generar_vecino(S_actual, fase, "local", dias[indice])
             
             if not vecinos:
                 continue
@@ -468,12 +497,16 @@ def SA_fase_simulacion(config_inicial, fase: str, año: int = 4, verbose: bool =
             mejor_costo_vecino = float('inf')
             
             for vecino in vecinos:
-                costo_v = evaluar_fase_simulacion(vecino, fase, año, n_rep=3)  # Muy pocas réplicas
+                v = repr(vecino)
+                if v in vecinos_evaluados:
+                    costo_v = vecinos_evaluados[v]
+                    print("YA EVALUADO")
+                else:
+                    costo_v = evaluar_fase_simulacion(vecino, fase, año, dias[indice], n_rep = 10)  # Muy pocas réplicas
+                    vecinos_evaluados[v] = costo_v
                 print("Vecino", costo_v)
                 if costo_v < mejor_costo_vecino:
                     print(f"Nuevo mejor vecino: {costo_v}, mayor a {mejor_costo_vecino}")
-                    #imprimir_configuracion(vecino, fase)
-                    print(f"Vecino: {vecino}, fase: {fase}")
                     mejor_costo_vecino = costo_v
                     mejor_vecino = vecino
             
@@ -481,11 +514,19 @@ def SA_fase_simulacion(config_inicial, fase: str, año: int = 4, verbose: bool =
             costo_vecino = mejor_costo_vecino
         else:
             # Global: genera 1 vecino con perturbación grande
-            S_vecino = generar_vecino(S_actual, fase, "global")
-            costo_vecino = evaluar_fase_simulacion(S_vecino, fase, año, n_rep=3)
+            S_vecino = generar_vecino(S_actual, fase, "global", dias[indice])
+            costo_vecino = evaluar_fase_simulacion(S_vecino, fase, año, dias[indice], n_rep=10)
         
         # Criterio de Metropolis
+        if fase == "operacional":
+            print(costo_vecino, costo_actual__)
+            delta = costo_vecino - costo_actual__
+            if delta < 0:
+                costo_vecino += evaluar_fase_simulacion(S_vecino, fase, año, n_rep = 10, condicion = False)
+
+
         delta = costo_vecino - costo_actual
+
         print(f"🔁 Iter {iteracion}: Costo actual={costo_actual:.2e}, Costo vecino={costo_vecino:.2e}, Delta={delta:.2e}, T={T:.1f}")
         
         if delta < 0:

@@ -850,6 +850,7 @@ def simular_un_dia(day: DayType, CONFIG, HORARIOS, AÑO, seed: Optional[int] = 4
     sim = SupermarketSimOptimized(CONFIG, HORARIOS, AÑO, day=day, seed=seed)
     sim.run()
     return sim.kpis()
+    
 
 
 def simular_varios(dia: DayType, CONFIG, HORARIOS, AÑO, n_rep: int = 10, seed_base: int = 123) -> Dict[str, float]:

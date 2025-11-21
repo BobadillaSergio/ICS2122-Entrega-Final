@@ -250,7 +250,7 @@ class ConfigOperacional:
         for dia in DayType:
             repr_str += f"  {dia.value}:\n"
             # Mostrar solo una muestra de horas (8, 12, 18, 21)
-            for hora in [8, 12, 18, 21]:
+            for hora in range(8,22):
                 total = self.total_cajas_abiertas(dia, hora)
                 repr_str += f"    {hora:02d}:00 - total={total:2d} | "
                 repr_str += ", ".join([f"{lt.value}={len(self.horarios[dia][hora][lt])}" for lt in LaneType])

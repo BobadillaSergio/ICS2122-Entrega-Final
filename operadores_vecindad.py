@@ -298,7 +298,7 @@ def swap_horas_adyacentes(config: ConfigOperacional, dia: DayType, hora1: int) -
     return nueva_config
 
 
-def generar_vecinos_operacionales_locales(config: ConfigOperacional, max_vecinos: int = 10) -> List[ConfigOperacional]:
+def generar_vecinos_operacionales_locales(config: ConfigOperacional, dia: DayType, max_vecinos: int = 10) -> List[ConfigOperacional]:
     """
     Genera vecinos locales (pequeñas modificaciones horarias).
     
@@ -311,24 +311,22 @@ def generar_vecinos_operacionales_locales(config: ConfigOperacional, max_vecinos
     vecinos = []
     # Calcular estado de carga para todos los (dia, hora, tipo)
     estados_carga = []
-    
-    for dia in DayType:
-        for hora in range(8, 22):
-            for tipo in LaneType:
-                # Calcular carga actual (evitar división por cero)
-                carriles_activos = sum(len(config.horarios[dia][hora][l]) for l in LaneType)
-                if carriles_activos > 0:
-                    carga = 1 / (carriles_activos * LAMBDA_POR_HORA[dia][hora])
-                else:
-                    carga = float('inf')  # Máxima prioridad si no hay carriles
-                
-                estados_carga.append({
-                    'dia': dia,
-                    'hora': hora,
-                    'tipo': tipo,
-                    'carga': carga,
-                    'carriles_actuales': len(config.horarios[dia][hora][tipo])
-                })
+    for hora in range(8, 22):
+        for tipo in LaneType:
+            # Calcular carga actual (evitar división por cero)
+            carriles_activos = sum(len(config.horarios[dia][hora][l]) for l in LaneType)
+            if carriles_activos > 0:
+                carga = 1 / (carriles_activos * LAMBDA_POR_HORA[dia][hora])
+            else:
+                carga = float('inf')  # Máxima prioridad si no hay carriles
+            
+            estados_carga.append({
+                'dia': dia,
+                'hora': hora,
+                'tipo': tipo,
+                'carga': carga,
+                'carriles_actuales': len(config.horarios[dia][hora][tipo])
+            })
     
     # Ordenar por carga (mayor a menor)
     estados_carga.sort(key=lambda x: x['carga'], reverse=True)
@@ -380,7 +378,7 @@ def generar_vecinos_operacionales_locales(config: ConfigOperacional, max_vecinos
     return vecinos
 
 
-def generar_vecino_operacional_global(config: ConfigOperacional) -> ConfigOperacional:
+def generar_vecino_operacional_global(config: ConfigOperacional, dia: DayType) -> ConfigOperacional:
     """
     Genera un vecino global (cambios drásticos en horarios).
     Estrategias: boost peak hours, reduce valley hours, replicar patrón.
@@ -391,27 +389,24 @@ def generar_vecino_operacional_global(config: ConfigOperacional) -> ConfigOperac
     if estrategia == "boost_peak":
         # Abrir todas las cajas disponibles en horas pico (12-13, 18-20)
         horas_pico = [12, 13, 18, 19, 20]
-        for dia in DayType:
-            for hora in horas_pico:
-                for tipo in LaneType:
-                    max_cajas = nueva_config.config_tactica.cajas_por_anio[nueva_config.anio_actual][tipo]
-                    nueva_config.horarios[dia][hora][tipo] = list(range(max_cajas))
-    
+        for hora in horas_pico:
+            for tipo in LaneType:
+                max_cajas = nueva_config.config_tactica.cajas_por_anio[nueva_config.anio_actual][tipo]
+                nueva_config.horarios[dia][hora][tipo] = list(range(max_cajas))
+
     elif estrategia == "reduce_valley":
         # Cerrar la mitad de las cajas en horas valle (8-10, 21)
         horas_valle = [8, 9, 21]
-        for dia in DayType:
-            for hora in horas_valle:
-                for tipo in LaneType:
-                    cajas_abiertas = len(nueva_config.horarios[dia][hora][tipo])
-                    if cajas_abiertas > 2:
-                        nueva_config.horarios[dia][hora][tipo] = nueva_config.horarios[dia][hora][tipo][:cajas_abiertas // 2]
-    
+        for hora in horas_valle:
+            for tipo in LaneType:
+                cajas_abiertas = len(nueva_config.horarios[dia][hora][tipo])
+                if cajas_abiertas > 2:
+                    nueva_config.horarios[dia][hora][tipo] = nueva_config.horarios[dia][hora][tipo][:cajas_abiertas // 2]
+
     else:  # replicar_patron
         # Copiar horarios de domingo a días normales (o viceversa)
         dia_origen = random.choice(list(DayType))
-        dia_destino = random.choice([d for d in DayType if d != dia_origen])
-        nueva_config.horarios[dia_destino] = nueva_config.horarios[dia_origen].copy()
+        nueva_config.horarios[dia] = nueva_config.horarios[dia_origen].copy()
     
     if not nueva_config.es_factible():
         return config.copy()
@@ -423,7 +418,7 @@ def generar_vecino_operacional_global(config: ConfigOperacional) -> ConfigOperac
 # FUNCIÓN GENÉRICA DE GENERACIÓN DE VECINOS
 # ============================================
 
-def generar_vecino(config, fase: str, tipo_vecino: str = "local"):
+def generar_vecino(config, fase: str, tipo_vecino: str = "local", dia = None):
     """
     Función genérica para generar vecinos según la fase.
     
@@ -449,9 +444,9 @@ def generar_vecino(config, fase: str, tipo_vecino: str = "local"):
     
     elif fase == "operacional":
         if tipo_vecino == "local":
-            return generar_vecinos_operacionales_locales(config)
+            return generar_vecinos_operacionales_locales(config, dia)
         else:
-            return generar_vecino_operacional_global(config)
+            return generar_vecino_operacional_global(config, dia)
     
     else:
         raise ValueError(f"Fase desconocida: {fase}")
