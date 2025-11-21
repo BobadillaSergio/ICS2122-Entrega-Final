@@ -759,7 +759,7 @@ def SA_Pendular_Simulacion(config_inicial: ConfiguracionInicial,
         # Optimizar fase operacional para cada año (0-4)
         operacional_por_anio = {}
         historial_operacional = {}
-        for anio_oper in range(5):
+        for anio_oper in range(6):
             if verbose:
                 print(f"\n    → Optimizando año operacional {anio_oper} (Año real {2025 + anio_oper})")
 
