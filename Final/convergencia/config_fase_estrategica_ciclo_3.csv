@@ -1,0 +1,12 @@
+iteracion,configuracion
+0,{<LaneType.REGULAR: 'regular'>: 30, <LaneType.EXPRESS: 'express'>: 0, <LaneType.PRIORITY: 'priority'>: 0, <LaneType.SELF: 'self_checkout'>: 0}
+1,{<LaneType.REGULAR: 'regular'>: 30, <LaneType.EXPRESS: 'express'>: 0, <LaneType.PRIORITY: 'priority'>: 0, <LaneType.SELF: 'self_checkout'>: 0}
+2,{<LaneType.REGULAR: 'regular'>: 30, <LaneType.EXPRESS: 'express'>: 0, <LaneType.PRIORITY: 'priority'>: 0, <LaneType.SELF: 'self_checkout'>: 0}
+3,{<LaneType.REGULAR: 'regular'>: 30, <LaneType.EXPRESS: 'express'>: 0, <LaneType.PRIORITY: 'priority'>: 0, <LaneType.SELF: 'self_checkout'>: 0}
+4,{<LaneType.REGULAR: 'regular'>: 30, <LaneType.EXPRESS: 'express'>: 0, <LaneType.PRIORITY: 'priority'>: 0, <LaneType.SELF: 'self_checkout'>: 0}
+5,{<LaneType.REGULAR: 'regular'>: 30, <LaneType.EXPRESS: 'express'>: 0, <LaneType.PRIORITY: 'priority'>: 0, <LaneType.SELF: 'self_checkout'>: 0}
+6,{<LaneType.REGULAR: 'regular'>: 30, <LaneType.EXPRESS: 'express'>: 0, <LaneType.PRIORITY: 'priority'>: 0, <LaneType.SELF: 'self_checkout'>: 0}
+7,{<LaneType.REGULAR: 'regular'>: 30, <LaneType.EXPRESS: 'express'>: 0, <LaneType.PRIORITY: 'priority'>: 0, <LaneType.SELF: 'self_checkout'>: 0}
+8,{<LaneType.REGULAR: 'regular'>: 30, <LaneType.EXPRESS: 'express'>: 0, <LaneType.PRIORITY: 'priority'>: 0, <LaneType.SELF: 'self_checkout'>: 0}
+9,{<LaneType.REGULAR: 'regular'>: 30, <LaneType.EXPRESS: 'express'>: 0, <LaneType.PRIORITY: 'priority'>: 0, <LaneType.SELF: 'self_checkout'>: 0}
+10,{<LaneType.REGULAR: 'regular'>: 30, <LaneType.EXPRESS: 'express'>: 0, <LaneType.PRIORITY: 'priority'>: 0, <LaneType.SELF: 'self_checkout'>: 0}

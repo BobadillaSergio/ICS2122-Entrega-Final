@@ -44,10 +44,10 @@ def ejecutar_heuristica_2_horas():
     # Configuración inicial (baseline óptima)
     config_inicial = ConfiguracionInicial(
         config_caja={
-            LaneType.REGULAR: 29,
-            LaneType.EXPRESS: 0,
-            LaneType.PRIORITY: 0,
-            LaneType.SELF: 0
+            LaneType.REGULAR: 15,
+            LaneType.EXPRESS: 3,
+            LaneType.PRIORITY: 2,
+            LaneType.SELF: 5
         },
         horarios_caja=HORARIOS_CAJA,
         año=2025

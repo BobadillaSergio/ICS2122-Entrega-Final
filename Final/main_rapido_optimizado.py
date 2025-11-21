@@ -135,7 +135,7 @@ COSTOS_FIJOS = {
     LaneType.REGULAR: 8000000,
     LaneType.EXPRESS: 8000000,
     LaneType.PRIORITY: 8000000,
-    LaneType.SELF: 25000000,
+    LaneType.SELF: 8000000,
 }
 
 COSTO_CAJA_CLP_POR_HORA = {
@@ -376,7 +376,7 @@ class Lane:
 
     def receiving_customers(self, hora_actual: float) -> bool:
         for inicio, fin in self.horario_apertura:
-            if inicio <= hora_actual < fin:
+            if inicio <= hora_actual <= fin:
                 return True
         return False
 
@@ -614,6 +614,8 @@ class SupermarketSimOptimized:
             return
 
         def load(l: Lane, cliente):
+            if l == None:
+                return float('inf')
             if l.servers.count <= l.servers.capacity and len(l.servers.queue) == 0:
                 a = l.servers.count / l.servers.capacity
                 return a
@@ -622,7 +624,7 @@ class SupermarketSimOptimized:
                 return (a + ((len(l.servers.queue) / l.servers.capacity))) * tiempo_asociado_a_un_cliente[(c.profile, l.type)]
 
         orden_prioridad = {LaneType.EXPRESS: 1, LaneType.SELF: 4,
-                          LaneType.REGULAR: 2, LaneType.PRIORITY: 3}
+                          LaneType.REGULAR: 2, LaneType.PRIORITY: 3, None: 10}
 
         def load_y_desempate(lane):
             carga = load(lane, c)
